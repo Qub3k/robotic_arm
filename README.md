@@ -4,3 +4,8 @@ This repository is dedicated for the project aimed to create a software tools ne
 The main idea is to build and program the device that incorporates various sensors, like accelerometers and gyroscopes, which may allow the robotic arm to track its movement. 
 
 In order to achieve the above mentioned goals the Freescale's FRDM-KL46Z board will be utilised.
+
+# Team members:
+- Dzierżewicz Tomasz,
+- Kwiatosz Michał,
+- Nawała Jakub.
