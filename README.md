@@ -9,3 +9,27 @@ In order to achieve the above mentioned goals the Freescale's FRDM-KL46Z board w
 - Dzierżewicz Tomasz,
 - Kwiatosz Michał,
 - Nawała Jakub.
+
+# Functional assumptions
+
+The main idea of the project is to integrate a robotic arm with the movement of our
+hand. It is possible thanks to the motion controller with integrated gyroscope and
+accelerometer.
+
+## Operating diagram:
+- booting the arm, passage to the standby mode after a short welcome gesture.
+- robot is tracking position of the controller in the virtual 3D space and imitate its movement,
+- arm is controlled by sensor with build-in accelerometer and gyroscope,
+- if there is no motion robot performs a few of learned movements,
+- at the end of tracking of our hand position robot is saying goodbye and goes to the starting position.
+
+## Milestones:
+- handling the MPU-6050 sensor -> *handled by Michał Kwiatosz*,
+- defining area of the motion based on arm parameters (arm length, maximum
+angles of servomechanisms etc.) -> *handled by Tomasz Dzierżewicz*,
+- designating the formula for the inverse kinematics -> *handled by Jakub Nawała*.
+
+## Base elements:
+- Robotic Arm,
+- FRDM KL46Z board,
+- MPU-6050 module.
