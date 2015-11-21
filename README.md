@@ -35,10 +35,10 @@ accelerometer.
 
 ## Milestones
 Date | Tomasz Dzierżewicz | Michał Kwiatosz | Jakub Nawała
-----------------------------------------------------------
+-----|--------------------|-----------------|-------------
 24 Nov 2015 | Application I/O | Library I/O and functionality | Application I/O
-8 Dec 2015 |
-15 Dec 2015 |
-22 Dec 2015 |
-12 Jan 2016 |
-19 Jan 2016 |
+8 Dec 2015 | -- | -- | --
+15 Dec 2015 | -- | -- | -- 
+22 Dec 2015 | -- | -- | -- 
+12 Jan 2016 | -- | -- | -- 
+19 Jan 2016 | -- | -- | -- 
