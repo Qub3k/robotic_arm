@@ -25,7 +25,7 @@ accelerometer.
 
 ## Duties:
 - handling the MPU-6050 sensor -> *Michał Kwiatosz*,
-- creatiing the LabView-based communciation interface for the robotic arm -> *Tomasz Dzierżewicz*,
+- creating the LabView-based communciation interface for the robotic arm -> *Tomasz Dzierżewicz*,
 - creating the LabView-based control interface of the robotic arm -> *Jakub Nawała*.
 
 ## Base elements:
