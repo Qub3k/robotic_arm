@@ -44,4 +44,4 @@ Date | Tomasz Dzierżewicz | Michał Kwiatosz | Jakub Nawała
 19 Jan 2016 | -- | -- | -- 
 
 ## Block diagram
-![alt text](https://github.com/Qub3k/robotic_arm/block_diagram/block_diagram_robotic_arm.png "Block diagram of the Robotic Arm project")
+![alt text](https://github.com/Qub3k/robotic_arm/tree/master/block_diagram/block_diagram_robotic_arm.png "Block diagram of the Robotic Arm project")
