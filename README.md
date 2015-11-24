@@ -23,13 +23,25 @@ accelerometer.
 - if there is no motion robot performs a few of learned movements,
 - at the end of tracking of our hand position robot is saying goodbye and goes to the starting position.
 
-## Milestones:
-- handling the MPU-6050 sensor -> *handled by Michał Kwiatosz*,
-- defining area of the motion based on arm parameters (arm length, maximum
-angles of servomechanisms etc.) -> *handled by Tomasz Dzierżewicz*,
-- designating the formula for the inverse kinematics -> *handled by Jakub Nawała*.
+## Duties:
+- handling the MPU-6050 sensor -> *Michał Kwiatosz*,
+- creating the LabView-based communciation interface for the robotic arm -> *Tomasz Dzierżewicz*,
+- creating the LabView-based control interface of the robotic arm -> *Jakub Nawała*.
 
 ## Base elements:
 - Robotic Arm,
 - FRDM KL46Z board,
 - MPU-6050 module.
+
+## Milestones
+Date | Tomasz Dzierżewicz | Michał Kwiatosz | Jakub Nawała
+-----|--------------------|-----------------|-------------
+24 Nov 2015 | Application I/O | Library I/O and functionality | Application I/O
+8 Dec 2015 | -- | -- | --
+15 Dec 2015 | -- | -- | -- 
+22 Dec 2015 | -- | -- | -- 
+12 Jan 2016 | -- | -- | -- 
+19 Jan 2016 | -- | -- | -- 
+
+## Block diagram
+![alt text](https://raw.githubusercontent.com/Qub3k/robotic_arm/master/block_diagram/block_diagram_robotic_arm.png "Block diagram of the Robotic Arm project")
