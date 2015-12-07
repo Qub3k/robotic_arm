@@ -41,9 +41,15 @@
  -> delay_ms(unsigned long num_ms)
  -> get_ms(unsigned long *count)
  -> reg_int_cb(void (*cb)(void), unsigned char port, unsigned char pin) =>  register the interrupt callback
+                                                                            interrupt callback to po prostu ISR
+                                                                            czyli Interrup Service Routine
  -> labs(long x) => wartość bezwzględna liczby w formacie "long int"
  -> fabsf(float x) => wartość bezwzględna liczby w formacie "float"
  -> min(int a, int b)
+ -> log_i => z tego co zrozumiałem to jest to funkcja służąca do logowanie przebiegu pracy czujnika
+             można ją zaimplementować jako nic nie robiącą funkcje: do{} while(0) 
+ -> log_e => z tego co zrozumiałem to jest to funkcja służąca do logowanie przebiegu pracy czujnika
+             można ją zaimplementować jako nic nie robiącą funkcje: do{} while(0)
 
   W tej konkretnej implementacji, twórcy posługują się makrami preprocesora,
   aby włączyć kod odpowiedni dla urządzenia.
@@ -144,16 +150,22 @@
 // #if !defined MPU6050 && !defined MPU9150 && !defined MPU6500 && !defined MPU9250
 // #error  Which gyro are you using? Define MPUxxxx in your compiler options.
 // #endif
-/********************************************
-    Koniec przykładowego kodu od InvenSense
-*********************************************/
+/******************************************************************************
+    
+                    Koniec przykładowego kodu od InvenSense
 
+*******************************************************************************/ 
+
+/* Zdefiniujmy makro mówiące o tym jakiego używamy czujnika - będzie to potrzebne */ 
+/* w dalszych częściach kodu */
 #define MPU6050
+
 /******************************************************************************
     
                     Początek przykładowego kodu od InvenSense
 
     Prawdopodobnie zbędy kod, ale może służyć jako punkt odniesienia.
+    Na pewno część z AK8975 oraz AK8963 nam się nie przyda bo to ą kompasy.
 
 *******************************************************************************/    
 // /* Time for some messy macro work. =]
@@ -198,16 +210,20 @@
 
 *******************************************************************************/     
 
+/* Dziwne, że ta deklaracja funkcji znajduje się tutaj a nie w nagłówku */
+/* Póki co lepiej ją tutaj zostawić */                    
 static int set_int_enable(unsigned char enable);
 
 /******************************************************************************
 
                             ROBOTIC ARM DESIGN LAB 
                             
- Struktur zdefniowana poniżej może być punktem wyjścia dla naszej biblioteki.
+ Struktura zdefniowana poniżej może być punktem wyjścia dla naszej biblioteki.
  Zawiera ona definicje każdego rejestru jako 8-bitowy typ "unsigned char". Stoi
  to w zgodności z data sheet'em czujnika, gdyż rzeczywiście rejstry urządzenia
  są 8-bitowe.
+ Dodatkowo, można od razu zauważyć, że każdy typ zdefiniowany w kodzie jako
+ struktura kończy się na "_s"
 
  ******************************************************************************/
 /* Hardware registers needed by driver. */
@@ -242,7 +258,7 @@ struct gyro_reg_s {
     unsigned char bank_sel;
     unsigned char mem_start_addr;
     unsigned char prgm_start_h;
-// #if defined AK89xx_SECONDARY
+// #if defined AK89xx_SECONDARY // Nie używamy kompasu więc ten kod można pominąć 
 //     unsigned char s0_addr;
 //     unsigned char s0_reg;
 //     unsigned char s0_ctrl;
@@ -270,17 +286,25 @@ struct gyro_reg_s {
  ******************************************************************************/
 /* Information specific to a particular device. */
 struct hw_s {
-    unsigned char addr;
-    unsigned short max_fifo;
-    unsigned char num_reg;
-    unsigned short temp_sens;
-    short temp_offset;
+    unsigned char addr; // adres I2C urządzenia
+    unsigned short max_fifo; // max. rozmiar bufora FIFO
+    unsigned char num_reg; // liczba rejestrów dostępnych dla czujnika
+    unsigned short temp_sens; // stała służąca do wyliczania temperatury dla danego czujnika
+    short temp_offset; // kolejna stała do kalibracji pomiaru temperatury
     unsigned short bank_size;
 // #if defined AK89xx_SECONDARY
 //     unsigned short compass_fsr;
 // #endif
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniższa struktura to zbiór danych używanych do przechowywania informacji
+ na temat stanu poprzedzającego przejście do przerwania "Motion Interrupt"
+
+ ******************************************************************************/
 /* When entering motion interrupt mode, the driver keeps track of the
  * previous state so that it can be restored at a later time.
  * TODO: This is tacky. Fix it.
@@ -295,6 +319,14 @@ struct motion_int_cache_s {
     unsigned char dmp_on;
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniższa struktura służy przechowywaniu aktualnie ustawionej konfiguracji
+ czujnika (tak mi się wydaje -> info czeka na potwierdzenie)
+
+ ******************************************************************************/
 /* Cached chip configuration data.
  * TODO: A lot of these can be handled with a bitmask.
  */
@@ -336,7 +368,7 @@ struct chip_cfg_s {
     unsigned char dmp_loaded;
     /* Sampling rate used when DMP is enabled. */
     unsigned short dmp_sample_rate;
-// #ifdef AK89xx_SECONDARY
+// #ifdef AK89xx_SECONDARY // To nam na pewno się nie przyda, bo nie używamy kompasu
 //     /* Compass sample rate. */
 //     unsigned short compass_sample_rate;
 //     unsigned char compass_addr;
@@ -344,6 +376,13 @@ struct chip_cfg_s {
 // #endif
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniższa struktura służy przechowywaniu danych używanych do kalibracji czunika
+
+ ******************************************************************************/
 /* Information for self-test. */
 struct test_s {
     unsigned long gyro_sens;
@@ -362,6 +401,34 @@ struct test_s {
     float max_accel_var;
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniższa struktura łączy wcześniej opisane struktury tworząc spójny kontener
+ w pełni opisujący stan naszego urządzenia.
+
+ Co może przez chwilę zastanawiać to struktura wewnątrz sktruktury, ale coś 
+ takiego jest dozwolone w C.
+
+ Jako przykład na zrozumienie załóżmy, że tworzymy obiekt struktury "gyro_state_s"
+ o nazwie "state":
+
+    struct gyro_state_s state;
+
+ I teraz, żeby dostać się do pola o nazwie "foo" w obiekcie podstruktury "chip_cfg_s"
+ znajdującej się wewnątrz struktury "gyro_state_s" używamy następującej składni:
+
+    state.chip_cfg.foo
+
+ Zakładając, że obiekt struktury "chip_cfg_s" został zdefiniowany wewnątrz struktury
+ "gyro_state_s" jako "chip_cfg"
+
+ Wracając do poniższej struktury należy zauważyć, że w tym miejscu, pola obiektu
+ "chip_cfg" struktury "chip_cfg_s" nie mają określonych wartości (są tylko
+ zdefiniowane).
+
+ ******************************************************************************/
 /* Gyro driver state variables. */
 struct gyro_state_s {
     const struct gyro_reg_s *reg;
@@ -370,52 +437,70 @@ struct gyro_state_s {
     const struct test_s *test;
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniżej znajduje się kilka typów wyliczeniowych wygodnych do konfiguracji
+ określonych funkcji wewnątrz niżej zdefiniowanych metod.
+
+ Należy pamiętac, że typy wilczeniowe działają jak zwykły TYP zmiennej w C.
+ I tak, każda zmienna o typie "lpf_e" może mieć wartości: INV_FILTER_256HZ_NOLPF2,
+ INV_FILTER_188HZ, INV_FILTER_98HZ itd.
+
+ O czym jeszcze należy pamiętać to fakt, iż domyślnie, pierwszy elemnt z listy
+ ma wartość 0. Potem, kolejne elemnty mają wartości przypisane ciągowi liczb
+ całkowitych rosnącyh co 1.
+
+ Dla przejrzystoći kodu częst wprost pisze się, że pierwszy element ma wartość 0.
+
+ ******************************************************************************/
 /* Filter configurations. */
 enum lpf_e {
     INV_FILTER_256HZ_NOLPF2 = 0,
-    INV_FILTER_188HZ,
-    INV_FILTER_98HZ,
-    INV_FILTER_42HZ,
-    INV_FILTER_20HZ,
-    INV_FILTER_10HZ,
-    INV_FILTER_5HZ,
-    INV_FILTER_2100HZ_NOLPF,
-    NUM_FILTER
+    INV_FILTER_188HZ, // = 1
+    INV_FILTER_98HZ, // = 2
+    INV_FILTER_42HZ, // = 3
+    INV_FILTER_20HZ, // = 4
+    INV_FILTER_10HZ, // = 5
+    INV_FILTER_5HZ, // = 6
+    INV_FILTER_2100HZ_NOLPF, // = 7
+    NUM_FILTER // = 8
 };
 
 /* Full scale ranges. */
 enum gyro_fsr_e {
     INV_FSR_250DPS = 0,
-    INV_FSR_500DPS,
-    INV_FSR_1000DPS,
-    INV_FSR_2000DPS,
-    NUM_GYRO_FSR
+    INV_FSR_500DPS, // = 1
+    INV_FSR_1000DPS, // = 2
+    INV_FSR_2000DPS, // = 3
+    NUM_GYRO_FSR // = 4
 };
 
 /* Full scale ranges. */
 enum accel_fsr_e {
     INV_FSR_2G = 0,
-    INV_FSR_4G,
-    INV_FSR_8G,
-    INV_FSR_16G,
-    NUM_ACCEL_FSR
+    INV_FSR_4G, // = 1
+    INV_FSR_8G, // = 2
+    INV_FSR_16G, // = 3
+    NUM_ACCEL_FSR // = 4
 };
 
 /* Clock sources. */
 enum clock_sel_e {
     INV_CLK_INTERNAL = 0,
-    INV_CLK_PLL,
-    NUM_CLK
+    INV_CLK_PLL, // = 1
+    NUM_CLK // = 2
 };
 
 /* Low-power accel wakeup rates. */
 enum lp_accel_rate_e {
 // #if defined MPU6050
-    INV_LPA_1_25HZ,
-    INV_LPA_5HZ,
-    INV_LPA_20HZ,
-    INV_LPA_40HZ
-// #elif defined MPU6500
+    INV_LPA_1_25HZ, // = 0
+    INV_LPA_5HZ, // = 1
+    INV_LPA_20HZ, // = 2
+    INV_LPA_40HZ // = 3
+// #elif defined MPU6500 // Możemy zakomentować dalszą część makra, bo nie używamy czujnika MPU6500
 //     INV_LPA_0_3125HZ,
 //     INV_LPA_0_625HZ,
 //     INV_LPA_1_25HZ,
@@ -431,6 +516,18 @@ enum lp_accel_rate_e {
 // #endif
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Poniżej znajdują się definicje bitów dla określonych rejestrów. I tak, np., 
+ rejestr "PWR_MGMT_1" ma bit o nazwie "DEVICE_RESET" na miejscu 7, co tutaj
+ zdefiniowane jest jako "BIT_RESET" = 0x80 = 128 = 0b1000 0000
+
+ Można sie domyślić, iż reguła jest taka, że definicja bitu w danym rejestrze
+ zawsze zaczyna się od słowa kluczowego "BIT_"
+
+ ******************************************************************************/
 #define BIT_I2C_MST_VDDIO   (0x80)
 #define BIT_FIFO_EN         (0x40)
 #define BIT_DMP_EN          (0x80)
@@ -473,41 +570,35 @@ enum lp_accel_rate_e {
 #define BIT_STBY_XYZA       (BIT_STBY_XA | BIT_STBY_YA | BIT_STBY_ZA)
 #define BIT_STBY_XYZG       (BIT_STBY_XG | BIT_STBY_YG | BIT_STBY_ZG)
 
-// #if defined AK8975_SECONDARY
+// #if defined AK8975_SECONDARY // Możemy zakomentować dalszą część makra, bo nie użwywamy kompasu
 // #define SUPPORTS_AK89xx_HIGH_SENS   (0x00)
 // #define AK89xx_FSR                  (9830)
 // #elif defined AK8963_SECONDARY
 // #define SUPPORTS_AK89xx_HIGH_SENS   (0x10)
 // #define AK89xx_FSR                  (4915)
-// #endif
+// #endif // koniec makra kompasu
 
-// #ifdef AK89xx_SECONDARY
+// #ifdef AK89xx_SECONDARY // Możemy zakomentować dalszą część makra, bo nie użwywamy kompasu
 // #define AKM_REG_WHOAMI      (0x00)
-
 // #define AKM_REG_ST1         (0x02)
 // #define AKM_REG_HXL         (0x03)
 // #define AKM_REG_ST2         (0x09)
-
 // #define AKM_REG_CNTL        (0x0A)
 // #define AKM_REG_ASTC        (0x0C)
 // #define AKM_REG_ASAX        (0x10)
 // #define AKM_REG_ASAY        (0x11)
 // #define AKM_REG_ASAZ        (0x12)
-
 // #define AKM_DATA_READY      (0x01)
 // #define AKM_DATA_OVERRUN    (0x02)
 // #define AKM_OVERFLOW        (0x80)
 // #define AKM_DATA_ERROR      (0x40)
-
 // #define AKM_BIT_SELF_TEST   (0x40)
-
 // #define AKM_POWER_DOWN          (0x00 | SUPPORTS_AK89xx_HIGH_SENS)
 // #define AKM_SINGLE_MEASUREMENT  (0x01 | SUPPORTS_AK89xx_HIGH_SENS)
 // #define AKM_FUSE_ROM_ACCESS     (0x0F | SUPPORTS_AK89xx_HIGH_SENS)
 // #define AKM_MODE_SELF_TEST      (0x08 | SUPPORTS_AK89xx_HIGH_SENS)
-
 // #define AKM_WHOAMI      (0x48)
-// #endif
+// #endif // koniec makra kompasu
 
 /******************************************************************************
 
@@ -518,6 +609,10 @@ enum lp_accel_rate_e {
  to i wszystko zgadza się z data sheet'em czujnika. 
  Żeby zrozumieć co się tutaj dzieje najpierw trzeba zobaczyć deklaracje 
  struktury "gyro_reg_s", które może być znelziona ok. 300 linijek powyżej.
+
+ Metoda przypisywania wartości do pól wewnątrz obiektu "reg" struktury "gyro_reg_s" 
+ jest jak najbaridziej poprawna i używana, gdy chcemy podkreślić, które dokładnie
+ pola inicjalizujemy.
 
  ******************************************************************************/
 // #if defined MPU6050
@@ -549,7 +644,7 @@ const struct gyro_reg_s reg = {
     .bank_sel       = 0x6D,
     .mem_start_addr = 0x6E,
     .prgm_start_h   = 0x70
-// #ifdef AK89xx_SECONDARY
+// #ifdef AK89xx_SECONDARY // możemy zakomentować kod w tym makrze, bo nie używamy kompasu
 //     ,.raw_compass   = 0x49,
 //     .yg_offs_tc     = 0x01,
 //     .s0_addr        = 0x25,
@@ -562,7 +657,7 @@ const struct gyro_reg_s reg = {
 //     .s0_do          = 0x63,
 //     .s1_do          = 0x64,
 //     .i2c_delay_ctrl = 0x67
-// #endif
+// #endif // koniec makra kompasu
 };
 
 /******************************************************************************
@@ -580,11 +675,25 @@ const struct hw_s hw = {
     .temp_sens      = 340,
     .temp_offset    = -521,
     .bank_size      = 256
-// #if defined AK89xx_SECONDARY
+// #if defined AK89xx_SECONDARY // Możemy zakomentować do makro, bo nie używamy kompasu
 //     ,.compass_fsr    = AK89xx_FSR
-// #endif
+// #endif // koniec makra kompasu
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja wartości strutkury używanej do kalibracji czujnika.
+
+ Pierwsze dwie wartości to czułość żyroskopu oraz akceleroemtra wyrażażona jako
+ LSB (Least Significatn Bit) po konwersji 16-bitowym ADC (od -32767 do 32768)
+ zakładając, że zakres pracy żyroskopu to +/- 250 dps (degrees per second),
+ a ackelerometru +/- 16g.
+
+ Pozostałe stałe to wartości niezbędne do odpowiedniej kalibracji.
+
+ ******************************************************************************/
 const struct test_s test = {
     .gyro_sens      = 32768/250,
     .accel_sens     = 32768/16,
@@ -602,12 +711,29 @@ const struct test_s test = {
     .max_accel_var  = 0.14f
 };
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ W tym miejscu następuje inicjalizacja obiektu "st" struktury przechowującej stan 
+ naszego czujnika ("gyro_state_s").
+
+ &reg to adres obiektu struktury "gyro_reg_s" przechowujący adresy w pamięci
+      wszystkich rejestrów
+
+ &hw to adres obiektu struktury "hw_s" zawierający dane sprzętowe naszego czujnika
+     takie jak: adres I2C, rozmiar bufora FIFO itd.
+
+ &test to adres obiektu struktury "test_s", który to obiekt zawiera dane 
+       niezbędne do poprawnego wykonania funkcji "self-test"
+
+ ******************************************************************************/
 static struct gyro_state_s st = {
-    .reg = &reg,
+    .reg = &reg, 
     .hw = &hw,
     .test = &test
 };
-// #elif defined MPU6500
+// #elif defined MPU6500 // Nie używamy czujnika MPU6500 więc możemy zakomentować całe to makro
 // const struct gyro_reg_s reg = {
 //     .who_am_i       = 0x75,
 //     .rate_div       = 0x19,
@@ -687,15 +813,29 @@ static struct gyro_state_s st = {
 //     .hw = &hw,
 //     .test = &test
 // };
-// #endif
+// #endif // koniec makro dla czujnika MPU6500
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja stałej, której przeznaczenia nie dońca jestem pewien
+
+ ******************************************************************************/
 #define MAX_PACKET_LENGTH (12)
 
-// #ifdef AK89xx_SECONDARY
+// #ifdef AK89xx_SECONDARY // Nie używamy kompasu więc możemy zakomentować to makro
 // static int setup_compass(void);
 // #define MAX_COMPASS_SAMPLE_RATE (100)
-// #endif
+// #endif // konie makra kompasu
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do włączania przerwania "data ready"
+
+ ******************************************************************************/
 /**
  *  @brief      Enable/disable data ready interrupt.
  *  If the DMP is on, the DMP interrupt is enabled. Otherwise, the data ready
@@ -707,24 +847,24 @@ static int set_int_enable(unsigned char enable)
 {
     unsigned char tmp;
 
-    if (st.chip_cfg.dmp_on) {
-        if (enable)
-            tmp = BIT_DMP_INT_EN;
+    if (st.chip_cfg.dmp_on) { // sprawdź czy Digital Motion Processor jest włączony
+        if (enable) // jeśli użytkownik chce włączyć ten rodzaj przerwania 
+            tmp = BIT_DMP_INT_EN; // to ustaw zmienną tmp na bit 2
         else
             tmp = 0x00;
-        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &tmp))
+        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &tmp)) // ustaw 2 bit w rejestrze INT_ENABLE
             return -1;
-        st.chip_cfg.int_enable = tmp;
-    } else {
-        if (!st.chip_cfg.sensors)
+        st.chip_cfg.int_enable = tmp; // zmień ustawienia w strukturze przechowującej status czujnika
+    } else { // jeśli DMP nie jest włączony
+        if (!st.chip_cfg.sensors) 
             return -1;
-        if (enable && st.chip_cfg.int_enable)
+        if (enable && st.chip_cfg.int_enable) // sprawdź czy przypadkiem to przerwania nie zostało już wcześniej włączone
             return 0;
         if (enable)
-            tmp = BIT_DATA_RDY_EN;
+            tmp = BIT_DATA_RDY_EN; 
         else
             tmp = 0x00;
-        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &tmp))
+        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &tmp)) // Ustaw bit BIT_DATA_RDY_EN w rejestrze INT_ENABLE aby włączyć przerwanie
             return -1;
         st.chip_cfg.int_enable = tmp;
     }

@@ -1,8 +1,11 @@
 /*
- $License:
-    Copyright (C) 2011-2012 InvenSense Corporation, All Rights Reserved.
-    See included License.txt for License information.
- $
+ Design Laboratory - Robotic Arm project
+
+ Dzierżewicz Tomasz
+ Kwiatosz Michał
+ Nawała Jakub
+
+ academic year 2015/2016
  */
 /**
  *  @addtogroup  DRIVERS Sensor Driver Layer
@@ -38,6 +41,13 @@ struct int_param_s {
     unsigned long pin;
     void (*cb)(volatile void*);
     void *arg;
+/* W tym miejscu będziemy musieli wstawić pola odpowiednie do zedfiniowanie przerwania dla FRDM-MKL46Z */
+/* Nie wykluczone, że wystarczy jedynie oznaczenie pin'u oraz wskaźnik to funkcji wywoływanej przy przewaniu /*
+/* czyli "callback" lub "ISR" = void (*cb)(void) */
+/* Przykładowy kod: */
+// #elif defined MKL46Z
+//     unsigned long pin;
+//     void (*cb)(void);
 #endif
 };
 
