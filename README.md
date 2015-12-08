@@ -1,4 +1,4 @@
-# Robotic arm software tools
+# jp2 gmd
 This repository is dedicated for the project aimed to create a software tools necessary to control the robotic arm.
 
 The main idea is to build and program the device that incorporates various sensors, like accelerometers and gyroscopes, which may allow the robotic arm to track its movement. 
