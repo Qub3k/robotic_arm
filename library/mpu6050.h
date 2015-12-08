@@ -29,26 +29,30 @@
 #define INV_Z_GYRO      (0x10)
 #define INV_XYZ_GYRO    (INV_X_GYRO | INV_Y_GYRO | INV_Z_GYRO)
 #define INV_XYZ_ACCEL   (0x08)
-#define INV_XYZ_COMPASS (0x01)
+// #define INV_XYZ_COMPASS (0x01) // ten define nam się nie przyda, bo nie używamy kompasu
 
 struct int_param_s {
-#if defined EMPL_TARGET_MSP430 || defined MOTION_DRIVER_TARGET_MSP430
-    void (*cb)(void);
-    unsigned short pin;
-    unsigned char lp_exit;
-    unsigned char active_low;
-#elif defined EMPL_TARGET_UC3L0
-    unsigned long pin;
-    void (*cb)(volatile void*);
-    void *arg;
-/* W tym miejscu będziemy musieli wstawić pola odpowiednie do zedfiniowanie przerwania dla FRDM-MKL46Z */
-/* Nie wykluczone, że wystarczy jedynie oznaczenie pin'u oraz wskaźnik to funkcji wywoływanej przy przewaniu /*
-/* czyli "callback" lub "ISR" = void (*cb)(void) */
+    
+// #if defined EMPL_TARGET_MSP430 || defined MOTION_DRIVER_TARGET_MSP430 // nie używamy tych platform więc to makro możemy zakomentować
+//     void (*cb)(void);
+//     unsigned short pin;
+//     unsigned char lp_exit;
+//     unsigned char active_low;
+// #elif defined EMPL_TARGET_UC3L0 // tej platformy również nie używamy
+//     unsigned long pin;
+//     void (*cb)(volatile void*);
+//     void *arg;
+
+/* W tym miejscu będziemy musieli wstawić pola odpowiednie do zedfiniowanie przerwania dla FRDM-MKL46Z
+   Nie wykluczone, że wystarczy jedynie oznaczenie pin'u oraz wskaźnik to funkcji wywoływanej przy przewaniu
+   czyli "callback" lub "ISR" = void (*cb)(void) */
+
 /* Przykładowy kod: */
 // #elif defined MKL46Z
 //     unsigned long pin;
 //     void (*cb)(void);
-#endif
+
+// #endif
 };
 
 #define MPU_INT_STATUS_DATA_READY       (0x0001)
@@ -73,8 +77,7 @@ int mpu_set_bypass(unsigned char bypass_on);
 
 /* Configuration APIs */
 int mpu_lp_accel_mode(unsigned char rate);
-int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time,
-    unsigned char lpa_freq);
+int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time, unsigned char lpa_freq);
 int mpu_set_int_level(unsigned char active_low);
 int mpu_set_int_latched(unsigned char enable);
 
@@ -115,18 +118,13 @@ int mpu_get_compass_reg(short *data, unsigned long *timestamp);
 int mpu_get_temperature(long *data, unsigned long *timestamp);
 
 int mpu_get_int_status(short *status);
-int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp,
-    unsigned char *sensors, unsigned char *more);
-int mpu_read_fifo_stream(unsigned short length, unsigned char *data,
-    unsigned char *more);
+int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp, unsigned char *sensors, unsigned char *more);
+int mpu_read_fifo_stream(unsigned short length, unsigned char *data, unsigned char *more);
 int mpu_reset_fifo(void);
 
-int mpu_write_mem(unsigned short mem_addr, unsigned short length,
-    unsigned char *data);
-int mpu_read_mem(unsigned short mem_addr, unsigned short length,
-    unsigned char *data);
-int mpu_load_firmware(unsigned short length, const unsigned char *firmware,
-    unsigned short start_addr, unsigned short sample_rate);
+int mpu_write_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);
+int mpu_read_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);
+int mpu_load_firmware(unsigned short length, const unsigned char *firmware, unsigned short start_addr, unsigned short sample_rate);
 
 int mpu_reg_dump(void);
 int mpu_read_reg(unsigned char reg, unsigned char *data);
@@ -134,4 +132,3 @@ int mpu_run_self_test(long *gyro, long *accel);
 int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));
 
 #endif  /* #ifndef _INV_MPU_H_ */
-
