@@ -12,13 +12,10 @@
  *  @brief       Hardware drivers to communicate with sensors via I2C.
  *
  *  @{
- *      @file       inv_mpu.h
+ *      @file       mpu_6050.h
  *      @brief      An I2C-based driver for Invensense gyroscopes.
  *      @details    This driver currently works for the following devices:
  *                  MPU6050
- *                  MPU6500
- *                  MPU9150 (or MPU6050 w/ AK8975 on the auxiliary bus)
- *                  MPU9250 (or MPU6500 w/ AK8963 on the auxiliary bus)
  */
 
 #ifndef _INV_MPU_H_
@@ -32,7 +29,7 @@
 // #define INV_XYZ_COMPASS (0x01) // ten define nam się nie przyda, bo nie używamy kompasu
 
 struct int_param_s {
-    
+
 // #if defined EMPL_TARGET_MSP430 || defined MOTION_DRIVER_TARGET_MSP430 // nie używamy tych platform więc to makro możemy zakomentować
 //     void (*cb)(void);
 //     unsigned short pin;
@@ -71,26 +68,35 @@ struct int_param_s {
 #define MPU_INT_STATUS_DMP_5            (0x2000)
 
 /* Set up APIs */
+/* Deklaracja funkcji służącej do inicjalizacji urządzenia. */
 int mpu_init(struct int_param_s *int_param);
 int mpu_init_slave(void);
+/* Funkcja ustawiająca urządzenie w tryb "bypass". */
 int mpu_set_bypass(unsigned char bypass_on);
 
 /* Configuration APIs */
 int mpu_lp_accel_mode(unsigned char rate);
 int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time, unsigned char lpa_freq);
 int mpu_set_int_level(unsigned char active_low);
+/* Funkcja włączająca tryb "latched interrupts" dla pinu INT. */
 int mpu_set_int_latched(unsigned char enable);
 
 int mpu_set_dmp_state(unsigned char enable);
 int mpu_get_dmp_state(unsigned char *enabled);
 
+/* Funkcja zwracające aktualne ustawienie Digital Low Pass Filter */
 int mpu_get_lpf(unsigned short *lpf);
+/* Funkcja ustawiająca cut-off filtra dolnoprzepustowego. */
 int mpu_set_lpf(unsigned short lpf);
 
+/* Funkcja zwracająca aktualne ustawienia czułości żyroskopu. */
 int mpu_get_gyro_fsr(unsigned short *fsr);
+/* Funkcja ustawiająca czułość żyroskopu. */
 int mpu_set_gyro_fsr(unsigned short fsr);
 
+/* Funkcja zwracające aktualne ustawienia czułości akceleromteru. */
 int mpu_get_accel_fsr(unsigned char *fsr);
+/* Funkcja ustawiająca czułość akcelerometru. */
 int mpu_set_accel_fsr(unsigned char fsr);
 
 int mpu_get_compass_fsr(unsigned short *fsr);
@@ -98,15 +104,19 @@ int mpu_get_compass_fsr(unsigned short *fsr);
 int mpu_get_gyro_sens(float *sens);
 int mpu_get_accel_sens(unsigned short *sens);
 
+/* Funkcja zwraca aktualne utawienia "sampling rate". */
 int mpu_get_sample_rate(unsigned short *rate);
+/* Funkcja ustawiająca sampling rate dla danych pobieranych z czujników. */
 int mpu_set_sample_rate(unsigned short rate);
 int mpu_get_compass_sample_rate(unsigned short *rate);
 int mpu_set_compass_sample_rate(unsigned short rate);
 
 int mpu_get_fifo_config(unsigned char *sensors);
+/* Funkcja ustawiająca, które czujniki mają przekazywać swoje odczyty do bufora First-In-Firsto-Out. */
 int mpu_configure_fifo(unsigned char sensors);
 
 int mpu_get_power_state(unsigned char *power_on);
+/* Funkcja dzięki której możemy włączyć konkretne sensory. */
 int mpu_set_sensors(unsigned char sensors);
 
 int mpu_set_accel_bias(const long *accel_bias);
@@ -126,7 +136,9 @@ int mpu_write_mem(unsigned short mem_addr, unsigned short length, unsigned char 
 int mpu_read_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);
 int mpu_load_firmware(unsigned short length, const unsigned char *firmware, unsigned short start_addr, unsigned short sample_rate);
 
+/* Deklaracja funkcji służącej do wypisywania zawartości rejstrów urządzenia. */
 int mpu_reg_dump(void);
+/* Deklaracja funkcji służącej do oczytywania zawartości konkretnego rejestru. */
 int mpu_read_reg(unsigned char reg, unsigned char *data);
 int mpu_run_self_test(long *gyro, long *accel);
 int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));

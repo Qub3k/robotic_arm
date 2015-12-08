@@ -12,13 +12,10 @@
  *  @brief       Hardware drivers to communicate with sensors via I2C.
  *
  *  @{
- *      @file       inv_mpu.c
+ *      @file       mpu6050.c
  *      @brief      An I2C-based driver for Invensense gyroscopes.
  *      @details    This driver currently works for the following devices:
  *                  MPU6050
- *                  MPU6500
- *                  MPU9150 (or MPU6050 w/ AK8975 on the auxiliary bus)
- *                  MPU9250 (or MPU6500 w/ AK8963 on the auxiliary bus)
  */
 #include <stdio.h>
 #include <stdint.h>
@@ -210,8 +207,7 @@
 
 *******************************************************************************/     
 
-/* Dziwne, że ta deklaracja funkcji znajduje się tutaj a nie w nagłówku */
-/* Póki co lepiej ją tutaj zostawić */                    
+/* Deklaracja funkcji służącej do włączania przerwania "data ready" */
 static int set_int_enable(unsigned char enable);
 
 /******************************************************************************
@@ -967,7 +963,7 @@ int mpu_init(struct int_param_s *int_param)
     /* Kolejne linijki to ustawienia od producenta związane z numerem seryjnym urządzenia 
        Wygląda na to, że niektóre czujniki osbługują tylko połowę nominalnej czułości     
        ackelerometru jaka jest dla MPU-6050 - myślę, że można to tu zostawić */
-#if defined MPU6050
+// #if defined MPU6050
     /* Check product revision. */
     if (i2c_read(st.hw->addr, st.reg->accel_offs, 6, data)) // odczytaj 6 rejestrów zaczynając od rejestru 0x06 czyli ACCEL_OFFS (nie ma takiego rejestru w data sheet'cie)
         return -1;
@@ -1364,6 +1360,13 @@ int mpu_reset_fifo(void)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracająca aktualne ustawienia czułości żyroskopu.
+
+ ******************************************************************************/
 /**
  *  @brief      Get the gyro full-scale range.
  *  @param[out] fsr Current full-scale range.
@@ -1371,7 +1374,7 @@ int mpu_reset_fifo(void)
  */
 int mpu_get_gyro_fsr(unsigned short *fsr)
 {
-    switch (st.chip_cfg.gyro_fsr) {
+    switch (st.chip_cfg.gyro_fsr) { // w zależnośi od ustawienia zapisanego w naszej strukturze konfiguracyjnej, przypisz do zmiennej "fsr" odpowiednią czułość
     case INV_FSR_250DPS:
         fsr[0] = 250;
         break;
@@ -1441,6 +1444,16 @@ int mpu_set_gyro_fsr(unsigned short fsr)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracające aktualne ustawienia czułości akceleromteru.
+
+ To czy aktywny jest tryb "half accelerometer precision" zależy od numeru
+ seryjnego urządzenia sprawdzanego w funkcji inicjalizującej.
+
+ ******************************************************************************/
 /**
  *  @brief      Get the accel full-scale range.
  *  @param[out] fsr Current full-scale range.
@@ -1448,7 +1461,7 @@ int mpu_set_gyro_fsr(unsigned short fsr)
  */
 int mpu_get_accel_fsr(unsigned char *fsr)
 {
-    switch (st.chip_cfg.accel_fsr) {
+    switch (st.chip_cfg.accel_fsr) { // w zależności od wartości ustawionej w naszej strukturze konifiguracyjnej, wpisz prawidłową wartość do zmiennej podanej jako paramter
     case INV_FSR_2G:
         fsr[0] = 2;
         break;
@@ -1464,7 +1477,7 @@ int mpu_get_accel_fsr(unsigned char *fsr)
     default:
         return -1;
     }
-    if (st.chip_cfg.accel_half)
+    if (st.chip_cfg.accel_half) // jeśli włączony jest tryb "halp accelerometer precision" to zwróc czułość podzieloną przez 2
         fsr[0] <<= 1;
     return 0;
 }
@@ -1519,6 +1532,13 @@ int mpu_set_accel_fsr(unsigned char fsr)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracające aktualne ustawienie Digital Low Pass Filter
+
+ ******************************************************************************/
 /**
  *  @brief      Get the current DLPF setting.
  *  @param[out] lpf Current LPF setting.
@@ -1526,7 +1546,7 @@ int mpu_set_accel_fsr(unsigned char fsr)
  */
 int mpu_get_lpf(unsigned short *lpf)
 {
-    switch (st.chip_cfg.lpf) {
+    switch (st.chip_cfg.lpf) { // w zależności od wartości zapisanej w strukturze konfiguracyjnej, zapisz prawdiłową wartość w zmiennej podanej jako parametr
     case INV_FILTER_188HZ:
         lpf[0] = 188;
         break;
@@ -1545,7 +1565,7 @@ int mpu_get_lpf(unsigned short *lpf)
     case INV_FILTER_5HZ:
         lpf[0] = 5;
         break;
-    case INV_FILTER_256HZ_NOLPF2:
+    case INV_FILTER_256HZ_NOLPF2: // ten i kolejny przypadek nie są używane w MPU 6050
     case INV_FILTER_2100HZ_NOLPF:
     default:
         lpf[0] = 0;
@@ -1575,6 +1595,8 @@ int mpu_get_lpf(unsigned short *lpf)
 
  Należy pamiętać, że jeśli włączymy Low Pass Filter to output rate żyroskopu
  domyślnie jest ograniczony do 1 kHz!
+
+ Dodatkowo, można ustawić filtr 
 
  ******************************************************************************/
 /**
@@ -1611,6 +1633,13 @@ int mpu_set_lpf(unsigned short lpf)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwraca aktualne utawienia "sampling rate".
+
+ ******************************************************************************/
 /**
  *  @brief      Get sampling rate.
  *  @param[out] rate    Current sampling rate (Hz).
@@ -1618,10 +1647,10 @@ int mpu_set_lpf(unsigned short lpf)
  */
 int mpu_get_sample_rate(unsigned short *rate)
 {
-    if (st.chip_cfg.dmp_on)
+    if (st.chip_cfg.dmp_on) // jeśli włączony jest Digital Moion Processor to przerwji działanie i zwróć kod błędu
         return -1;
     else
-        rate[0] = st.chip_cfg.sample_rate;
+        rate[0] = st.chip_cfg.sample_rate; // w innym wypadku, zapisz dane ze struktury konfiguracyjnej do zmiennej podanej jako argument
     return 0;
 }
 
@@ -2211,6 +2240,22 @@ int mpu_set_int_level(unsigned char active_low)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja włączająca tryb "latched interrupts" dla pinu INT.
+
+ Gdy ten tryb jest włączony to pin "INT" utrzymuje status przerwania tak długo
+ jak długo ustawiona jest flaga któregokowliek przerwania w odpowiednim rejestrze.
+
+ Dopiero po wyczeszczeniu tej flagi, pin "INT" wraca to stanu jałowego.
+
+ Może dziwić, że pojawiają sie tu linijki dotyczące bypass mode czy ustawienia
+ związane active-when-low. Dzieje się tak dlatego, że funkcja musi to zweryfikować
+ aby zachować te ustawienia takie jak były przed jej wywołaniem.
+
+ ******************************************************************************/
 /**
  *  @brief      Enable latched interrupts.
  *  Any MPU register will clear the interrupt.
@@ -2220,20 +2265,20 @@ int mpu_set_int_level(unsigned char active_low)
 int mpu_set_int_latched(unsigned char enable)
 {
     unsigned char tmp;
-    if (st.chip_cfg.latched_int == enable)
+    if (st.chip_cfg.latched_int == enable) // sprawdź czy przypadkiem zadane ustawienie nie jest już skonfigurowane
         return 0;
 
-    if (enable)
-        tmp = BIT_LATCH_EN | BIT_ANY_RD_CLR;
+    if (enable) // jeśli chcemy włączyć ten tryb to:
+        tmp = BIT_LATCH_EN | BIT_ANY_RD_CLR; // ustaw w zmiennej "tmp" bity BIT_LATCH_EN oraz BIT_ANY_RD_CLR
     else
-        tmp = 0;
-    if (st.chip_cfg.bypass_mode)
-        tmp |= BIT_BYPASS_EN;
-    if (st.chip_cfg.active_low_int)
-        tmp |= BIT_ACTL;
-    if (i2c_write(st.hw->addr, st.reg->int_pin_cfg, 1, &tmp))
+        tmp = 0; // w innym wypadku wyzeruj zmienną "tmp"
+    if (st.chip_cfg.bypass_mode) // jeśli aktywny jest tryb "bypass"
+        tmp |= BIT_BYPASS_EN; // to ustaw odpowieni bit
+    if (st.chip_cfg.active_low_int) // jeśli aktywny jest tryb "active when low" 
+        tmp |= BIT_ACTL; // to ustaw odpowiedni bit
+    if (i2c_write(st.hw->addr, st.reg->int_pin_cfg, 1, &tmp)) // zapisz zmienną "tmp" w rejestrze INT_PIN_CFG
         return -1;
-    st.chip_cfg.latched_int = enable;
+    st.chip_cfg.latched_int = enable; // zapisz zmianę do naszej struktury konfiguracyjnej
     return 0;
 }
 
@@ -2312,60 +2357,61 @@ static int gyro_self_test(long *bias_regular, long *bias_st)
     return result;
 }
 
-#ifdef AK89xx_SECONDARY
-static int compass_self_test(void)
-{
-    unsigned char tmp[6];
-    unsigned char tries = 10;
-    int result = 0x07;
-    short data;
+// #ifdef AK89xx_SECONDARY // kod w tym makrze jest nam niepotrzebnby, ponieważ nie używamy kompasu
+// static int compass_self_test(void)
+// {
+//     unsigned char tmp[6];
+//     unsigned char tries = 10;
+//     int result = 0x07;
+//     short data;
 
-    mpu_set_bypass(1);
+//     mpu_set_bypass(1);
 
-    tmp[0] = AKM_POWER_DOWN;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp))
-        return 0x07;
-    tmp[0] = AKM_BIT_SELF_TEST;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_ASTC, 1, tmp))
-        goto AKM_restore;
-    tmp[0] = AKM_MODE_SELF_TEST;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp))
-        goto AKM_restore;
+//     tmp[0] = AKM_POWER_DOWN;
+//     if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp))
+//         return 0x07;
+//     tmp[0] = AKM_BIT_SELF_TEST;
+//     if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_ASTC, 1, tmp))
+//         goto AKM_restore;
+//     tmp[0] = AKM_MODE_SELF_TEST;
+//     if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp))
+//         goto AKM_restore;
 
-    do {
-        delay_ms(10);
-        if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_ST1, 1, tmp))
-            goto AKM_restore;
-        if (tmp[0] & AKM_DATA_READY)
-            break;
-    } while (tries--);
-    if (!(tmp[0] & AKM_DATA_READY))
-        goto AKM_restore;
+//     do {
+//         delay_ms(10);
+//         if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_ST1, 1, tmp))
+//             goto AKM_restore;
+//         if (tmp[0] & AKM_DATA_READY)
+//             break;
+//     } while (tries--);
+//     if (!(tmp[0] & AKM_DATA_READY))
+//         goto AKM_restore;
 
-    if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_HXL, 6, tmp))
-        goto AKM_restore;
+//     if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_HXL, 6, tmp))
+//         goto AKM_restore;
 
-    result = 0;
-    data = (short)(tmp[1] << 8) | tmp[0];
-    if ((data > 100) || (data < -100))
-        result |= 0x01;
-    data = (short)(tmp[3] << 8) | tmp[2];
-    if ((data > 100) || (data < -100))
-        result |= 0x02;
-    data = (short)(tmp[5] << 8) | tmp[4];
-    if ((data > -300) || (data < -1000))
-        result |= 0x04;
+//     result = 0;
+//     data = (short)(tmp[1] << 8) | tmp[0];
+//     if ((data > 100) || (data < -100))
+//         result |= 0x01;
+//     data = (short)(tmp[3] << 8) | tmp[2];
+//     if ((data > 100) || (data < -100))
+//         result |= 0x02;
+//     data = (short)(tmp[5] << 8) | tmp[4];
+//     if ((data > -300) || (data < -1000))
+//         result |= 0x04;
 
-AKM_restore:
-    tmp[0] = 0 | SUPPORTS_AK89xx_HIGH_SENS;
-    i2c_write(st.chip_cfg.compass_addr, AKM_REG_ASTC, 1, tmp);
-    tmp[0] = SUPPORTS_AK89xx_HIGH_SENS;
-    i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp);
-    mpu_set_bypass(0);
-    return result;
-}
-#endif
-#endif
+// AKM_restore:
+//     tmp[0] = 0 | SUPPORTS_AK89xx_HIGH_SENS;
+//     i2c_write(st.chip_cfg.compass_addr, AKM_REG_ASTC, 1, tmp);
+//     tmp[0] = SUPPORTS_AK89xx_HIGH_SENS;
+//     i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, tmp);
+//     mpu_set_bypass(0);
+//     return result;
+// }
+// #endif // koniec makra kompasu
+#endif 
+/* koniec makra MPU6050 */
 
 static int get_st_biases(long *gyro, long *accel, unsigned char hw_test)
 {
