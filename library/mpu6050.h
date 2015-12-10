@@ -40,14 +40,25 @@ struct int_param_s {
 //     void (*cb)(volatile void*);
 //     void *arg;
 
-/* W tym miejscu będziemy musieli wstawić pola odpowiednie do zedfiniowanie przerwania dla FRDM-MKL46Z
-   Nie wykluczone, że wystarczy jedynie oznaczenie pin'u oraz wskaźnik to funkcji wywoływanej przy przewaniu
-   czyli "callback" lub "ISR" = void (*cb)(void) */
+/* W tym miejscu będziemy musieli wstawić pola odpowiednie do zdefiniowania przerwania dla FRDM-MKL46Z
+ * Nie wykluczone, że wystarczy jedynie oznaczenie pin'u oraz wskaźnik do funkcji wywoływanej przy przewaniu
+ * czyli "callback" lub "ISR" = void (*cb)(void) 
+ * Jak zapisać funkcje do takiego wskaźnika?
+ * -> musimy najpierw napisać jakąś funkcje:
+ *      void my_int_func(int a) {
+ *          return a+1;
+ *      }
+ * -> stowrzyć wskaźnik do funkcji:
+ *      void (*callback)(void);
+ * -> przypisać funkcje "my_int_func" to wskaźnika funkcji "callback":
+ *      callback = &my_int_func; // '&' jest nieobowiązkowy
+ * -> w razie problemów ze zrozumieniem polecam przeczytać: http://www.cprogramming.com/tutorial/function-pointers.html
+ */
 
 /* Przykładowy kod: */
 // #elif defined MKL46Z
 //     unsigned long pin;
-//     void (*cb)(void);
+//     void (*cb)(void); // wskaźnik do funkcji "callback"
 
 // #endif
 };
@@ -67,16 +78,26 @@ struct int_param_s {
 #define MPU_INT_STATUS_DMP_4            (0x1000)
 #define MPU_INT_STATUS_DMP_5            (0x2000)
 
-/* Set up APIs */
+/***************************************
+ *                                     *
+ *           Set up APIs               *
+ *                                     *
+ ***************************************/
 /* Deklaracja funkcji służącej do inicjalizacji urządzenia. */
 int mpu_init(struct int_param_s *int_param);
 int mpu_init_slave(void);
 /* Funkcja ustawiająca urządzenie w tryb "bypass". */
 int mpu_set_bypass(unsigned char bypass_on);
 
-/* Configuration APIs */
+/***************************************
+ *                                     *
+ *        Configuration APIs           *
+ *                                     *
+ ***************************************/
+/* Deklaracja funkcji służącej do wejścia w tryp "lop-power accelerometer-only mode". */
 int mpu_lp_accel_mode(unsigned char rate);
 int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time, unsigned char lpa_freq);
+/* Funkcja ustawiająca jaki locziny poziom odpowiada przerwaniu. */
 int mpu_set_int_level(unsigned char active_low);
 /* Funkcja włączająca tryb "latched interrupts" dla pinu INT. */
 int mpu_set_int_latched(unsigned char enable);
@@ -89,47 +110,65 @@ int mpu_get_lpf(unsigned short *lpf);
 /* Funkcja ustawiająca cut-off filtra dolnoprzepustowego. */
 int mpu_set_lpf(unsigned short lpf);
 
-/* Funkcja zwracająca aktualne ustawienia czułości żyroskopu. */
+/* Funkcja zwracająca aktualne ustawienia zakresu pracy żyroskopu. */
 int mpu_get_gyro_fsr(unsigned short *fsr);
-/* Funkcja ustawiająca czułość żyroskopu. */
+/* Funkcja ustawiająca zakres pracy żyroskopu. */
 int mpu_set_gyro_fsr(unsigned short fsr);
 
-/* Funkcja zwracające aktualne ustawienia czułości akceleromteru. */
+/* Funkcja zwracające aktualne ustawienia zakresu pracy akceleromteru. */
 int mpu_get_accel_fsr(unsigned char *fsr);
-/* Funkcja ustawiająca czułość akcelerometru. */
+/* Funkcja ustawiająca zakres pracy akcelerometru. */
 int mpu_set_accel_fsr(unsigned char fsr);
 
 int mpu_get_compass_fsr(unsigned short *fsr);
 
+/* Funkcja zwracająca ustawienia czułości żyroskopu. */
 int mpu_get_gyro_sens(float *sens);
+/* Funkcja zwracająca ustawienia czułości akcelerometra. */
 int mpu_get_accel_sens(unsigned short *sens);
 
 /* Funkcja zwraca aktualne utawienia "sampling rate". */
 int mpu_get_sample_rate(unsigned short *rate);
 /* Funkcja ustawiająca sampling rate dla danych pobieranych z czujników. */
 int mpu_set_sample_rate(unsigned short rate);
+/* Funkcja zwracająca Sampling Rate ustawiony dla kompasu. */
 int mpu_get_compass_sample_rate(unsigned short *rate);
+/* Funkcja ustawiająca Sampling Rate dla kompasu. */
 int mpu_set_compass_sample_rate(unsigned short rate);
 
+/* Funkcja zwracająca ustawienia konfiguracyjne bufora FIFO. */
 int mpu_get_fifo_config(unsigned char *sensors);
 /* Funkcja ustawiająca, które czujniki mają przekazywać swoje odczyty do bufora First-In-Firsto-Out. */
 int mpu_configure_fifo(unsigned char sensors);
 
+/* Funkcja zwracjąca obecny stan zużycia mocy udząrzednia. */
 int mpu_get_power_state(unsigned char *power_on);
 /* Funkcja dzięki której możemy włączyć konkretne sensory. */
 int mpu_set_sensors(unsigned char sensors);
 
+/* Deklaracja funkcji służącej do ustawiania bias'u dla akcelerometra. */
 int mpu_set_accel_bias(const long *accel_bias);
 
-/* Data getter/setter APIs */
+/***************************************
+ *                                     *
+ *      Data getter/setter APIs        *
+ *                                     *
+ ***************************************/
+/* Deklaracja funkcji służącej do sczytywania pomiarów z żrysokpu bezpośrednio z czujnika */
 int mpu_get_gyro_reg(short *data, unsigned long *timestamp);
+/* Deklaracja funkcji służącej do sczytywania pomiarów z akcelerometru bezpośrednio z czujnika */
 int mpu_get_accel_reg(short *data, unsigned long *timestamp);
-int mpu_get_compass_reg(short *data, unsigned long *timestamp);
+int mpu_get_compass_reg(short *data, unsigned long *timestamp); // tej funkcji raczej nie będziemy używać ( a nawet napewno )
+/* Deklaracja funkcji służącej do sczytywania pomiarów z termometru bezpośrednio z czujnika */
 int mpu_get_temperature(long *data, unsigned long *timestamp);
 
+/* Funkcja zwracjąca obecny stan rejestru przerwań. */
 int mpu_get_int_status(short *status);
+/* Funkcja zwracjąca jeden pakiet z bufora FIFO. */
 int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp, unsigned char *sensors, unsigned char *more);
+/* Funkcja zwracjąca jeden niestandardowy pakiet z bufora FIFO. */
 int mpu_read_fifo_stream(unsigned short length, unsigned char *data, unsigned char *more);
+/* Deklaracja funkcji służącej do resetowania bufora FIFO. */
 int mpu_reset_fifo(void);
 
 int mpu_write_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);

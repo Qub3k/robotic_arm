@@ -815,10 +815,11 @@ static struct gyro_state_s st = {
 
                             ROBOTIC ARM DESIGN LAB 
 
- Definicja stałej, której przeznaczenia nie dońca jestem pewien
+ Definicja stałej, której mówi ile jednorazowo bajtów można odczytać z bufora
+ FIFO.
 
  ******************************************************************************/
-#define MAX_PACKET_LENGTH (12)
+#define MAX_PACKET_LENGTH (12) 
 
 // #ifdef AK89xx_SECONDARY // Nie używamy kompasu więc możemy zakomentować to makro
 // static int setup_compass(void);
@@ -1084,6 +1085,31 @@ int mpu_init(struct int_param_s *int_param)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do wejścia w tryp "lop-power accelerometer-only mode".
+
+ Podanie tej funkcji argumentu o wartości '0' wyłącza tryb "low-power".
+
+ W trybie "low-power" chip śpi i budzi się tylko gdy przychodzi kolejna próbka 
+ danych z akcelerometru (tylko i wyłącznie!).
+
+ Dozwolona częstotliwość dla MPU-6050 to:
+ -> 1.25 Hz,
+ -> 5 Hz,
+ -> 20 Hz
+ -> oraz 40 Hz.
+
+ Według data sheet'a, procedura wprowadzania urządzenia w stan "low power" jest
+ następująca:
+ 1. set CYCLE bit in PRW_MGMT_1 register to '1',
+ 2. set SLEEP bit in PWR_MGMT_1 register to '0',
+ 3. set TEMP_DIS bit in PWR_MGMT_1 register to '1', => wyłącza czujnik temperatury
+ 4. set STBY_XG, STBY_YG, STBY_ZG bits to 1 in PWR_MGMT_2 register to '1'.
+
+ ******************************************************************************/
 /**
  *  @brief      Enter low-power accel-only mode.
  *  In low-power accel mode, the chip goes to sleep and only wakes up to sample
@@ -1101,19 +1127,19 @@ int mpu_init(struct int_param_s *int_param)
  */
 int mpu_lp_accel_mode(unsigned char rate)
 {
-    unsigned char tmp[2];
+    unsigned char tmp[2]; // należy zwrócić uwagę, że zmienna "tmp" jest 2 bajtowa
 
-    if (rate > 40)
+    if (rate > 40) // jeśli arugment wykracza poza największą dozwoloną częstotliwość pomiarów to przerwij działanie
         return -1;
 
-    if (!rate) {
-        mpu_set_int_latched(0);
-        tmp[0] = 0;
-        tmp[1] = BIT_STBY_XYZG;
-        if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 2, tmp))
+    if (!rate) { // jeśli rate ma wartość '0'
+        mpu_set_int_latched(0); // wyłącz tryb "latched interrupts"
+        tmp[0] = 0; // wyzeruj pierwsze 8 bajtów zmiennej "tmp"
+        tmp[1] = BIT_STBY_XYZG; // wyłącz żyroskop
+        if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 2, tmp)) // wpisz dwa bajty danych z "tmp" zaczynając od rejestru PWR_MGMT_1
             return -1;
-        st.chip_cfg.lp_accel_mode = 0;
-        return 0;
+        st.chip_cfg.lp_accel_mode = 0; // zapisz nowe ustawienia w naszej strukturze konfiguracyjnej
+        return 0; // wyjdź z funkcji
     }
     /* For LP accel, we automatically configure the hardware to produce latched
      * interrupts. In LP accel mode, the hardware cycles into sleep mode before
@@ -1122,12 +1148,12 @@ int mpu_lp_accel_mode(unsigned char rate)
      *
      * Any register read will clear the interrupt.
      */
-    mpu_set_int_latched(1);
-#if defined MPU6050
-    tmp[0] = BIT_LPA_CYCLE;
-    if (rate == 1) {
+    mpu_set_int_latched(1); // jeśli chcemy włączyć "low-power mode" to włączamy najpierw "latched interrupts"
+// #if defined MPU6050
+    tmp[0] = BIT_LPA_CYCLE; // pierwsze krok procedury = ustaw CYCLE mode
+    if (rate == 1) { // wybierz odpowiedni sample rate na podstawie podanego argumentu
         tmp[1] = INV_LPA_1_25HZ;
-        mpu_set_lpf(5);
+        mpu_set_lpf(5); // razem z "sampling rage" ustaw również filtr dolnoprzepustowy
     } else if (rate <= 5) {
         tmp[1] = INV_LPA_5HZ;
         mpu_set_lpf(5);
@@ -1138,45 +1164,56 @@ int mpu_lp_accel_mode(unsigned char rate)
         tmp[1] = INV_LPA_40HZ;
         mpu_set_lpf(20);
     }
-    tmp[1] = (tmp[1] << 6) | BIT_STBY_XYZG;
-    if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 2, tmp))
+    tmp[1] = (tmp[1] << 6) | BIT_STBY_XYZG; // przesuń ustawienia z poprzednich kilku linijek 0 6 bitów w lewo i ustaw bity wyłączające żyroskop
+    if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 2, tmp)) // zapisz dwa bajty "tmp" do dwóch rejestrów, zaczynając oc "PWR_MGMT_1"
         return -1;
-#elif defined MPU6500
-    /* Set wake frequency. */
-    if (rate == 1)
-        tmp[0] = INV_LPA_1_25HZ;
-    else if (rate == 2)
-        tmp[0] = INV_LPA_2_5HZ;
-    else if (rate <= 5)
-        tmp[0] = INV_LPA_5HZ;
-    else if (rate <= 10)
-        tmp[0] = INV_LPA_10HZ;
-    else if (rate <= 20)
-        tmp[0] = INV_LPA_20HZ;
-    else if (rate <= 40)
-        tmp[0] = INV_LPA_40HZ;
-    else if (rate <= 80)
-        tmp[0] = INV_LPA_80HZ;
-    else if (rate <= 160)
-        tmp[0] = INV_LPA_160HZ;
-    else if (rate <= 320)
-        tmp[0] = INV_LPA_320HZ;
-    else
-        tmp[0] = INV_LPA_640HZ;
-    if (i2c_write(st.hw->addr, st.reg->lp_accel_odr, 1, tmp))
-        return -1;
-    tmp[0] = BIT_LPA_CYCLE;
-    if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 1, tmp))
-        return -1;
-#endif
-    st.chip_cfg.sensors = INV_XYZ_ACCEL;
+// #elif defined MPU6500 // to makro nam jest niepotrzebne ponieważ nie używamy czujnika MPU6500
+//     /* Set wake frequency. */
+//     if (rate == 1)
+//         tmp[0] = INV_LPA_1_25HZ;
+//     else if (rate == 2)
+//         tmp[0] = INV_LPA_2_5HZ;
+//     else if (rate <= 5)
+//         tmp[0] = INV_LPA_5HZ;
+//     else if (rate <= 10)
+//         tmp[0] = INV_LPA_10HZ;
+//     else if (rate <= 20)
+//         tmp[0] = INV_LPA_20HZ;
+//     else if (rate <= 40)
+//         tmp[0] = INV_LPA_40HZ;
+//     else if (rate <= 80)
+//         tmp[0] = INV_LPA_80HZ;
+//     else if (rate <= 160)
+//         tmp[0] = INV_LPA_160HZ;
+//     else if (rate <= 320)
+//         tmp[0] = INV_LPA_320HZ;
+//     else
+//         tmp[0] = INV_LPA_640HZ;
+//     if (i2c_write(st.hw->addr, st.reg->lp_accel_odr, 1, tmp))
+//         return -1;
+//     tmp[0] = BIT_LPA_CYCLE;
+//     if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 1, tmp))
+//         return -1;
+// #endif // koniec niepotrzebnego makra
+    st.chip_cfg.sensors = INV_XYZ_ACCEL; // zapisz nowe ustawienia w strukturze konfiguracyjnej
     st.chip_cfg.clk_src = 0;
     st.chip_cfg.lp_accel_mode = 1;
-    mpu_configure_fifo(0);
+    mpu_configure_fifo(0); // nie przekierowuj żadnych danych do bufora FIFO
 
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do sczytywania pomiarów z żrysokpu bezpośrednio
+ z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
+
+ Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
+ definicja funkcji "get_ms()").
+
+ ******************************************************************************/
 /**
  *  @brief      Read raw gyro data directly from the registers.
  *  @param[out] data        Raw data in hardware units.
@@ -1185,21 +1222,32 @@ int mpu_lp_accel_mode(unsigned char rate)
  */
 int mpu_get_gyro_reg(short *data, unsigned long *timestamp)
 {
-    unsigned char tmp[6];
+    unsigned char tmp[6]; // utwórz 6 bajtową zmienną
 
-    if (!(st.chip_cfg.sensors & INV_XYZ_GYRO))
+    if (!(st.chip_cfg.sensors & INV_XYZ_GYRO)) // jeśli żyroskop nie jest włączony to zakończ działanie i ustaw kod błędu
         return -1;
 
-    if (i2c_read(st.hw->addr, st.reg->raw_gyro, 6, tmp))
+    if (i2c_read(st.hw->addr, st.reg->raw_gyro, 6, tmp)) // oczytaj 6 bajtów danych zaczynając od rejestru RAW_GYRO
         return -1;
-    data[0] = (tmp[0] << 8) | tmp[1];
+    data[0] = (tmp[0] << 8) | tmp[1]; // przez to, że rejestry są 8-bitowe, a dane 16-bitowe to trzeba górny bajt przesunać o 8 bitów w lewo
     data[1] = (tmp[2] << 8) | tmp[3];
     data[2] = (tmp[4] << 8) | tmp[5];
-    if (timestamp)
-        get_ms(timestamp);
+    if (timestamp) // jeśli adres wskaźnika "timestamp" jest inny niż zero to:
+        get_ms(timestamp); // zapisz również znacznik czasu pomiaru
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do sczytywania pomiarów z akcelerometru bezpośrednio
+ z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
+
+ Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
+ definicja funkcji "get_ms()").
+
+ ******************************************************************************/
 /**
  *  @brief      Read raw accel data directly from the registers.
  *  @param[out] data        Raw data in hardware units.
@@ -1208,14 +1256,14 @@ int mpu_get_gyro_reg(short *data, unsigned long *timestamp)
  */
 int mpu_get_accel_reg(short *data, unsigned long *timestamp)
 {
-    unsigned char tmp[6];
+    unsigned char tmp[6]; // utwórz 6 bajtową zmienną
 
-    if (!(st.chip_cfg.sensors & INV_XYZ_ACCEL))
+    if (!(st.chip_cfg.sensors & INV_XYZ_ACCEL)) // jeśli akcelerometr jest wyłączony to przerwij działanie
         return -1;
 
-    if (i2c_read(st.hw->addr, st.reg->raw_accel, 6, tmp))
+    if (i2c_read(st.hw->addr, st.reg->raw_accel, 6, tmp)) // odczytaj 6 bajtów zaczynać od rejestu "RAW_ACCEL"
         return -1;
-    data[0] = (tmp[0] << 8) | tmp[1];
+    data[0] = (tmp[0] << 8) | tmp[1]; // procedura odczytu jest taka sama jak w żyroskopie (patrz funkcja wyżej)
     data[1] = (tmp[2] << 8) | tmp[3];
     data[2] = (tmp[4] << 8) | tmp[5];
     if (timestamp)
@@ -1223,6 +1271,20 @@ int mpu_get_accel_reg(short *data, unsigned long *timestamp)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do sczytywania pomiarów z termometru bezpośrednio
+ z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
+
+ Co jest nakbardziej przyjemne to to, że funkcja sama przetwarza dane 
+ i zwraca wynik w stopniach celcjusza.
+
+ Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
+ definicja funkcji "get_ms()").
+
+ ******************************************************************************/
 /**
  *  @brief      Read temperature data directly from the registers.
  *  @param[out] data        Data in q16 format.
@@ -1231,22 +1293,37 @@ int mpu_get_accel_reg(short *data, unsigned long *timestamp)
  */
 int mpu_get_temperature(long *data, unsigned long *timestamp)
 {
-    unsigned char tmp[2];
-    short raw;
+    unsigned char tmp[2]; // utwórz 2 bajtową zmienną
+    short raw; // utwórz 2 bajtową zmienną (16-bitów)
 
-    if (!(st.chip_cfg.sensors))
+    if (!(st.chip_cfg.sensors)) // jeśli wszystkie czujniki sa wyłączone to przerwij działanie
         return -1;
 
-    if (i2c_read(st.hw->addr, st.reg->temp, 2, tmp))
+    if (i2c_read(st.hw->addr, st.reg->temp, 2, tmp)) // oczytaj 2 bajty zaczynając od rejestru "TEMP"
         return -1;
-    raw = (tmp[0] << 8) | tmp[1];
+    raw = (tmp[0] << 8) | tmp[1]; // wpisz odczytane dane do zmiennej "raw"
     if (timestamp)
-        get_ms(timestamp);
+        get_ms(timestamp); // zapisz znacznik czasu w parametrze "timestamp"
 
-    data[0] = (long)((35 + ((raw - (float)st.hw->temp_offset) / st.hw->temp_sens)) * 65536L);
+    data[0] = (long)((35 + ((raw - (float)st.hw->temp_offset) / st.hw->temp_sens)) * 65536L); // zapisz temperature w zmiennej podanej jako paramter, po ówczesnym zastosowaniu wzoru do kalibracji
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do ustawiania bias'u dla akcelerometra.
+
+ Jest to funkcja, która służy do ustawienia odpowiedniej kalibracji akcelerometra.
+
+ Funkcja sczytuje najpierw wartości kalibracyjne ustawione przez producenta podczas
+ fabrykacji urządzenia.
+
+ Tej funkcji używa się podczas kalibracji urządzenia po wykonaniu i zapisaniu 
+ wyników "self-test".
+
+ ******************************************************************************/
 /**
  *  @brief      Push biases to the accel bias registers.
  *  This function expects biases relative to the current sensor output, and
@@ -1256,34 +1333,34 @@ int mpu_get_temperature(long *data, unsigned long *timestamp)
  */
 int mpu_set_accel_bias(const long *accel_bias)
 {
-    unsigned char data[6];
-    short accel_hw[3];
-    short got_accel[3];
-    short fg[3];
+    unsigned char data[6]; // utwórz 6 bajtową zmienną
+    short accel_hw[3]; // utwórz 6 bajtową zmienną = 3 komórki po 2 bajty każda
+    short got_accel[3]; // utwórz 6 bajtową zmienną = 3 komórki po 2 bajty każda
+    short fg[3]; // utwórz 6 bajtową zmienną = 3 komórki po 2 bajty każda
 
-    if (!accel_bias)
-        return -1;
-    if (!accel_bias[0] && !accel_bias[1] && !accel_bias[2])
+    if (!accel_bias) // jeśli wskaźnik do "accel_bias" to zero 
+        return -1; // to zakończ działanie
+    if (!accel_bias[0] && !accel_bias[1] && !accel_bias[2]) // jeśli wszystkie wartości w "accel_bias" to zera to zakończ działanie
         return 0;
 
-    if (i2c_read(st.hw->addr, 3, 3, data))
+    if (i2c_read(st.hw->addr, 3, 3, data)) // przeczytaj 3 bajty zaczynając od rejstru 3 (nie ma go w datasheet'cie) = "factory trim", paranetry kalibracyjne ustawione przy fabrykacji chip'u
         return -1;
     fg[0] = ((data[0] >> 4) + 8) & 0xf;
     fg[1] = ((data[1] >> 4) + 8) & 0xf;
     fg[2] = ((data[2] >> 4) + 8) & 0xf;
 
-    accel_hw[0] = (short)(accel_bias[0] * 2 / (64 + fg[0]));
+    accel_hw[0] = (short)(accel_bias[0] * 2 / (64 + fg[0])); // używając zadanego bias'u oraz wartości fabrycznych, zapisza kalibracje bias'ingu akcelerometra
     accel_hw[1] = (short)(accel_bias[1] * 2 / (64 + fg[1]));
     accel_hw[2] = (short)(accel_bias[2] * 2 / (64 + fg[2]));
 
-    if (i2c_read(st.hw->addr, 0x06, 6, data))
+    if (i2c_read(st.hw->addr, 0x06, 6, data)) // przeczytaj 6 bajtów zaczynając od rejestru 6 (nie ma go w datasheet'cie) = obecny bias urządzenia
         return -1;
 
-    got_accel[0] = ((short)data[0] << 8) | data[1];
+    got_accel[0] = ((short)data[0] << 8) | data[1]; // używając sczytanych danych 
     got_accel[1] = ((short)data[2] << 8) | data[3];
     got_accel[2] = ((short)data[4] << 8) | data[5];
 
-    accel_hw[0] += got_accel[0];
+    accel_hw[0] += got_accel[0]; // utwórz nową konfigurację bias'ingu
     accel_hw[1] += got_accel[1];
     accel_hw[2] += got_accel[2];
 
@@ -1294,31 +1371,38 @@ int mpu_set_accel_bias(const long *accel_bias)
     data[4] = (accel_hw[2] >> 8) & 0xff;
     data[5] = (accel_hw[2]) & 0xff;
 
-    if (i2c_write(st.hw->addr, 0x06, 6, data))
+    if (i2c_write(st.hw->addr, 0x06, 6, data)) // zapisz konfigurację do rejestru przechowującego bias urzadzenia 
         return -1;
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Definicja funkcji służącej do resetowania bufora FIFO.
+
+ ******************************************************************************/
 /**
  *  @brief  Reset FIFO read/write pointers.
  *  @return 0 if successful.
  */
 int mpu_reset_fifo(void)
 {
-    unsigned char data;
+    unsigned char data; // utwórz 8 bitową zmienną
 
-    if (!(st.chip_cfg.sensors))
-        return -1;
-
-    data = 0;
-    if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &data))
-        return -1;
-    if (i2c_write(st.hw->addr, st.reg->fifo_en, 1, &data))
-        return -1;
-    if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data))
+    if (!(st.chip_cfg.sensors)) // jeśli wszystkie czujniki są wyłączone to przerwij działanie
         return -1;
 
-    if (st.chip_cfg.dmp_on) {
+    data = 0; // wyzeruj zmienną "data"
+    if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &data)) // wyzeruj rejestr "INT_ENABLE"
+        return -1;
+    if (i2c_write(st.hw->addr, st.reg->fifo_en, 1, &data)) // wyzeruj rejestr "FIFO_EN"
+        return -1;
+    if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data)) // wyzeruj rejestr "USER_CTRL"
+        return -1;
+
+    if (st.chip_cfg.dmp_on) { // jeśli włączony jest Digital Motion Processor (na razie to pominę bo zapewne nie będziemy go używać)
         data = BIT_FIFO_RST | BIT_DMP_RST;
         if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data))
             return -1;
@@ -1337,24 +1421,24 @@ int mpu_reset_fifo(void)
         data = 0;
         if (i2c_write(st.hw->addr, st.reg->fifo_en, 1, &data))
             return -1;
-    } else {
-        data = BIT_FIFO_RST;
-        if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data))
+    } else { // jeśli DMP jest wyłączony
+        data = BIT_FIFO_RST; // ustaw w zmiennej "data" bit BIT_FIFO_RST
+        if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data)) // rozpocznij procedurę "reset FIFO buffer"
             return -1;
-        if (st.chip_cfg.bypass_mode || !(st.chip_cfg.sensors & INV_XYZ_COMPASS))
-            data = BIT_FIFO_EN;
+        if (st.chip_cfg.bypass_mode || !(st.chip_cfg.sensors & INV_XYZ_COMPASS)) // jeśli działamy w "bypass_mode" lub kompas jest wyłączony
+            data = BIT_FIFO_EN; // to ustaw jedynie bit BIT_FIFO_EN => włącz FIFO buffer
         else
-            data = BIT_FIFO_EN | BIT_AUX_IF_EN;
-        if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data))
+            data = BIT_FIFO_EN | BIT_AUX_IF_EN; // w innym wypadku ustaw dodatkowo bit BIT_AUX_IF_EN
+        if (i2c_write(st.hw->addr, st.reg->user_ctrl, 1, &data)) // zapisz konfigurację do rejestru USER_CTRL
             return -1;
-        delay_ms(50);
-        if (st.chip_cfg.int_enable)
-            data = BIT_DATA_RDY_EN;
+        delay_ms(50); // poczekaj 50 ms na stabilizacje FIFO
+        if (st.chip_cfg.int_enable) // jeśli wcześniej ustawiony było jakie kolwiek przerwanie w rejestrze "INT_ENABLE"
+            data = BIT_DATA_RDY_EN; // to ustaw bit BIT_DATA_RDY_EN
         else
-            data = 0;
-        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &data))
+            data = 0; // w innym wypadku, wyzeruj zmienną "data"
+        if (i2c_write(st.hw->addr, st.reg->int_enable, 1, &data)) // wpisz konfigurację do rejestru INT_ENABLE
             return -1;
-        if (i2c_write(st.hw->addr, st.reg->fifo_en, 1, &st.chip_cfg.fifo_enable))
+        if (i2c_write(st.hw->addr, st.reg->fifo_en, 1, &st.chip_cfg.fifo_enable)) // zapisz w rejestrze FIFO_EN obecną konfigurację urządzenia przechowywaną w strukturze "st" (state)
             return -1;
     }
     return 0;
@@ -1364,7 +1448,7 @@ int mpu_reset_fifo(void)
 
                             ROBOTIC ARM DESIGN LAB 
 
- Funkcja zwracająca aktualne ustawienia czułości żyroskopu.
+ Funkcja zwracająca aktualne ustawienia zakresu pracy żyroskopu.
 
  ******************************************************************************/
 /**
@@ -1398,7 +1482,7 @@ int mpu_get_gyro_fsr(unsigned short *fsr)
 
                             ROBOTIC ARM DESIGN LAB 
 
- Funkcja ustawiająca czułość żyroskopu.
+ Funkcja ustawiająca zakres pracy żyroskopu. 
 
  Należy zwrócić uwagę jak sprytnie używa ona typu wyliczeniowego "gyro_fsr_e"
  przesuniętego o 3 bity w lewo. Przesunięcie wynika z tego, że to od 3 bitu
@@ -1448,7 +1532,7 @@ int mpu_set_gyro_fsr(unsigned short fsr)
 
                             ROBOTIC ARM DESIGN LAB 
 
- Funkcja zwracające aktualne ustawienia czułości akceleromteru.
+ Funkcja zwracające aktualne ustawienia zakresu pracy akceleromteru.
 
  To czy aktywny jest tryb "half accelerometer precision" zależy od numeru
  seryjnego urządzenia sprawdzanego w funkcji inicjalizującej.
@@ -1486,7 +1570,7 @@ int mpu_get_accel_fsr(unsigned char *fsr)
 
                             ROBOTIC ARM DESIGN LAB 
 
- Funkcja ustawiająca czułość akcelerometru.
+ Funkcja ustawiająca zakres pracy akcelerometru.
 
  Należy zwrócić uwagę jak sprytnie używa ona typu wyliczeniowego "accel_fsr_e"
  przesuniętego o 3 bity w lewo. Przesunięcie wynika z tego, że to od 3 bitu
@@ -1719,6 +1803,15 @@ int mpu_set_sample_rate(unsigned short rate)
     }
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracająca Sampling Rate ustawiony dla kompasu.
+
+ W projekcie robotic arm raczej nam się to nie przyda.
+
+ ******************************************************************************/
 /**
  *  @brief      Get compass sampling rate.
  *  @param[out] rate    Current compass sampling rate (Hz).
@@ -1726,15 +1819,24 @@ int mpu_set_sample_rate(unsigned short rate)
  */
 int mpu_get_compass_sample_rate(unsigned short *rate)
 {
-#ifdef AK89xx_SECONDARY
-    rate[0] = st.chip_cfg.compass_sample_rate;
-    return 0;
-#else
-    rate[0] = 0;
-    return -1;
-#endif
+// #ifdef AK89xx_SECONDARY // nie używamy kompasu więc możemy zakomentować to makro
+//     rate[0] = st.chip_cfg.compass_sample_rate;
+//     return 0;
+// #else // koniec makra kompasu
+    rate[0] = 0; // nie używamy kompasu więc ustaw zmienną na 0
+    return -1; // oraz zwróc kod błedu.
+// #endif
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja ustawiająca Sampling Rate dla kompasu.
+
+ W projekcie robotic arm raczej nam się to nie przyda.
+
+ ******************************************************************************/
 /**
  *  @brief      Set compass sampling rate.
  *  The compass on the auxiliary I2C bus is read by the MPU hardware at a
@@ -1748,20 +1850,35 @@ int mpu_get_compass_sample_rate(unsigned short *rate)
  */
 int mpu_set_compass_sample_rate(unsigned short rate)
 {
-#ifdef AK89xx_SECONDARY
-    unsigned char div;
-    if (!rate || rate > st.chip_cfg.sample_rate || rate > MAX_COMPASS_SAMPLE_RATE)
-        return -1;
+// #ifdef AK89xx_SECONDARY // zakomentuj makro kompasu, którego nie będziemy używać
+//     unsigned char div;
+//     if (!rate || rate > st.chip_cfg.sample_rate || rate > MAX_COMPASS_SAMPLE_RATE)
+//         return -1;
 
-    div = st.chip_cfg.sample_rate / rate - 1;
-    if (i2c_write(st.hw->addr, st.reg->s4_ctrl, 1, &div))
-        return -1;
-    st.chip_cfg.compass_sample_rate = st.chip_cfg.sample_rate / (div + 1);
-    return 0;
-#else
-    return -1;
-#endif
+//     div = st.chip_cfg.sample_rate / rate - 1;
+//     if (i2c_write(st.hw->addr, st.reg->s4_ctrl, 1, &div))
+//         return -1;
+//     st.chip_cfg.compass_sample_rate = st.chip_cfg.sample_rate / (div + 1);
+//     return 0;
+// #else // koniec makra kompasu
+
+    return -1; // zwróc -1 ponieważ nie używamy w projekcie kompasu
+
+// #endif
 }
+
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracająca ustawienia czułości żyroskopu.
+
+ Funkcja ta tłumaczy Full Scale Range na LSB/dps czyli ile kroków konwertera
+ analogowo-cyfrowego odpowiada jednepu stopniowi na sekundę.
+
+ Te wartości można odczytać bezpośrednio z data sheet'a.
+
+ ******************************************************************************/
 
 /**
  *  @brief      Get gyro sensitivity scale factor.
@@ -1770,9 +1887,9 @@ int mpu_set_compass_sample_rate(unsigned short rate)
  */
 int mpu_get_gyro_sens(float *sens)
 {
-    switch (st.chip_cfg.gyro_fsr) {
+    switch (st.chip_cfg.gyro_fsr) { // na podstawie danych zapisanych w strukturze konfiguracyjnej...
     case INV_FSR_250DPS:
-        sens[0] = 131.f;
+        sens[0] = 131.f; // ... przetłumasz Full Scale Range na LSB/dps
         break;
     case INV_FSR_500DPS:
         sens[0] = 65.5f;
@@ -1789,6 +1906,18 @@ int mpu_get_gyro_sens(float *sens)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracająca ustawienia czułości akcelerometra.
+
+ Funkcja ta tłumaczy Full Scale Range na LSB/g czyli ile kroków konwertera
+ analogowo-cyfrowego odpowiada jednepu g.
+
+ Te wartości można odczytać bezpośrednio z data sheet'a.
+
+ ******************************************************************************/
 /**
  *  @brief      Get accel sensitivity scale factor.
  *  @param[out] sens    Conversion from hardware units to g's.
@@ -1796,9 +1925,9 @@ int mpu_get_gyro_sens(float *sens)
  */
 int mpu_get_accel_sens(unsigned short *sens)
 {
-    switch (st.chip_cfg.accel_fsr) {
+    switch (st.chip_cfg.accel_fsr) { // odczytaj full scale range i...
     case INV_FSR_2G:
-        sens[0] = 16384;
+        sens[0] = 16384; // wylicz na jego podstawie LSB/g
         break;
     case INV_FSR_4G:
         sens[0] = 8092;
@@ -1812,11 +1941,20 @@ int mpu_get_accel_sens(unsigned short *sens)
     default:
         return -1;
     }
-    if (st.chip_cfg.accel_half)
+    if (st.chip_cfg.accel_half) // jeśli jest włączony tryb "accel_halt" to podziel wynik przez 2.
         sens[0] >>= 1;
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracająca ustawienia konfiguracyjne bufora FIFO.
+
+ Jest to po prostu zwrócenie wartości ze struktury konfiguracyjnej.
+
+ ******************************************************************************/
 /**
  *  @brief      Get current FIFO configuration.
  *  @e sensors can contain a combination of the following flags:
@@ -1828,7 +1966,7 @@ int mpu_get_accel_sens(unsigned short *sens)
  */
 int mpu_get_fifo_config(unsigned char *sensors)
 {
-    sensors[0] = st.chip_cfg.fifo_enable;
+    sensors[0] = st.chip_cfg.fifo_enable; // zapisz w zmiennej podanej jako argument obecną konfigurację FIFO
     return 0;
 }
 
@@ -1889,6 +2027,17 @@ int mpu_configure_fifo(unsigned char sensors)
     return result;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracjąca obecny stan zużycia mocy udząrzednia.
+
+ Zwraca:
+  -> 0 => sensory wyłączone, urządzenie wstrzymane,
+  -> 1 => sensory włączone, urządzenie pracuje.
+
+ ******************************************************************************/
 /**
  *  @brief      Get current power state.
  *  @param[in]  power_on    1 if turned on, 0 if suspended.
@@ -1896,10 +2045,10 @@ int mpu_configure_fifo(unsigned char sensors)
  */
 int mpu_get_power_state(unsigned char *power_on)
 {
-    if (st.chip_cfg.sensors)
-        power_on[0] = 1;
-    else
-        power_on[0] = 0;
+    if (st.chip_cfg.sensors) // jeśli którekolwiek sensory są włączone
+        power_on[0] = 1; // to zwróc informację, że urządzenie działa
+    else // jeśli wszystkie są wyłączone
+        power_on[0] = 0; // to zwróc informacje, że urządzenie jest wstrzymane.
     return 0;
 }
 
@@ -1910,7 +2059,7 @@ int mpu_get_power_state(unsigned char *power_on)
  Funkcja dzięki której możemy włączyć konkretne sensory.
 
  Pamiętaj, aby posługiwać się, zdefiniowanym w nagłówku "mpu6050.h", makrami
- odpowiadającymi konrketnym podezposłą:
+ odpowiadającymi konrketnym podezposłom:
  -> INV_X_GYRO      żyroskop tylko w osi x
  -> INV_Y_GYRO      żyroskop tylko w osi y
  -> INV_Z_GYRO      żyroskop tylko w osi z
@@ -2008,6 +2157,17 @@ int mpu_set_sensors(unsigned char sensors)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracjąca obecny stan rejestru przerwań.
+
+ Ważne jest to, aby zauważyć, że funkcja zwraca dwa pełne rejestry:
+ -> statusy przerwań dla DMP (Digital Motino Processor),
+ -> statusy przerwań dla reszty czujnika (bez DMP).
+
+ ******************************************************************************/
 /**
  *  @brief      Read the MPU interrupt status registers.
  *  @param[out] status  Mask of interrupt bits.
@@ -2015,15 +2175,31 @@ int mpu_set_sensors(unsigned char sensors)
  */
 int mpu_get_int_status(short *status)
 {
-    unsigned char tmp[2];
-    if (!st.chip_cfg.sensors)
-        return -1;
-    if (i2c_read(st.hw->addr, st.reg->dmp_int_status, 2, tmp))
+    unsigned char tmp[2]; // utwórz 2 bajtową zmienną
+    if (!st.chip_cfg.sensors) // jeśli wszystkie sensory są wyłączone to...
+        return -1; // ...przerwij działanie i zwróc kod błędu
+    if (i2c_read(st.hw->addr, st.reg->dmp_int_status, 2, tmp)) // Odczytaj zwartość statusu przerwań zarówno dla DMP, jak i dla reszty czujnika.
         return -1;
     status[0] = (tmp[0] << 8) | tmp[1];
     return 0;
 }
 
+
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracjąca jeden pakiet z bufora FIFO.
+
+ Należy pamiętać o tym, że wszystko dziala tutaj w trybie First-in-First-Out 
+ queue czyli jeśli chcemy odczytać zawartość 12 rejestrów to musimy 12 razy
+ odczytać dane z FIFO i po każdym odczycie, najstarsze dane są odrzucane i podczas
+ kolejnego odczytu, mamy dostęp do danych z kolejnego rejestru.
+
+ Z data sheet'a wynika, że dane z czujników są wpisywane do FIFO w kolejności
+ odpowiadającej adresowi ich rejestrów (od najmniejszego do największego).
+
+ ******************************************************************************/
 /**
  *  @brief      Get one packet from the FIFO.
  *  If @e sensors does not contain a particular sensor, disregard the data
@@ -2047,75 +2223,87 @@ int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp,
 {
     /* Assumes maximum packet size is gyro (6) + accel (6). */
     unsigned char data[MAX_PACKET_LENGTH];
-    unsigned char packet_size = 0;
+    unsigned char packet_size = 0; // zainicjalizuj rozmiar pakietu na 0
     unsigned short fifo_count, index = 0;
 
-    if (st.chip_cfg.dmp_on)
+    if (st.chip_cfg.dmp_on) // jeśli włączony jest DMP to przerwij działanie
         return -1;
 
-    sensors[0] = 0;
-    if (!st.chip_cfg.sensors)
-        return -1;
-    if (!st.chip_cfg.fifo_enable)
-        return -1;
+    sensors[0] = 0; // ustaw zmienną "sensors", podaną jako paramter na '0'
+    if (!st.chip_cfg.sensors) // jeśli żadne sensory nie są włączone to...
+        return -1;  // ...zwróć błąd
+    if (!st.chip_cfg.fifo_enable) // jeśli FIFO jest wyłączone to...
+        return -1; // ...zwróć błąd
 
-    if (st.chip_cfg.fifo_enable & INV_X_GYRO)
-        packet_size += 2;
-    if (st.chip_cfg.fifo_enable & INV_Y_GYRO)
-        packet_size += 2;
-    if (st.chip_cfg.fifo_enable & INV_Z_GYRO)
-        packet_size += 2;
-    if (st.chip_cfg.fifo_enable & INV_XYZ_ACCEL)
-        packet_size += 6;
+    if (st.chip_cfg.fifo_enable & INV_X_GYRO) // jeśli używamy osi X żyroskopu to...
+        packet_size += 2; //...powiększ rozmiar pakietu o 2 bajty
+    if (st.chip_cfg.fifo_enable & INV_Y_GYRO) // jeśli używamy osi y żyroskopu to...
+        packet_size += 2; //...powiększ rozmiar pakietu o 2 bajty
+    if (st.chip_cfg.fifo_enable & INV_Z_GYRO) // jeśli używamy osi z żyroskopu to...
+        packet_size += 2; //...powiększ rozmiar pakietu o 2 bajty
+    if (st.chip_cfg.fifo_enable & INV_XYZ_ACCEL) // jeśli używamy wszystkich osi akcelerometra to...
+        packet_size += 6; //...powiększ rozmiar pakietu o 6 bajtów
 
-    if (i2c_read(st.hw->addr, st.reg->fifo_count_h, 2, data))
+    if (i2c_read(st.hw->addr, st.reg->fifo_count_h, 2, data)) // odczytaj ile próbek danych jest obecnie dostępnych w buforze FIFO
         return -1;
-    fifo_count = (data[0] << 8) | data[1];
-    if (fifo_count < packet_size)
+    fifo_count = (data[0] << 8) | data[1]; // zapisz w zminnej "fifo_count" ile jest dostępnych do sczytania danych
+    if (fifo_count < packet_size) // jeśli ilośc danych do sczytania jest mniejsza niż potrzebny rozmiar pakietu to zakończ dzianie bez błęd -> wywołaj tę funkcję póxniej, żeby sczytać dane
         return 0;
 //    log_i("FIFO count: %hd\n", fifo_count);
-    if (fifo_count > (st.hw->max_fifo >> 1)) {
+    if (fifo_count > (st.hw->max_fifo >> 1)) { // jeśli FIFO jest w połowie pełne to...
         /* FIFO is 50% full, better check overflow bit. */
-        if (i2c_read(st.hw->addr, st.reg->int_status, 1, data))
+        if (i2c_read(st.hw->addr, st.reg->int_status, 1, data)) // ...prezczytaj dane z rejestru INT_STATUS
             return -1;
-        if (data[0] & BIT_FIFO_OVERFLOW) {
+        if (data[0] & BIT_FIFO_OVERFLOW) { // jeśi nastąpiło przepełnienie FIFO to go zresetuj
             mpu_reset_fifo();
             return -2;
         }
     }
-    get_ms((unsigned long*)timestamp);
+    get_ms((unsigned long*)timestamp); // sczytaj obecny znacznik czasu
 
-    if (i2c_read(st.hw->addr, st.reg->fifo_r_w, packet_size, data))
+    if (i2c_read(st.hw->addr, st.reg->fifo_r_w, packet_size, data)) // oczytaj rejestr FIFO_R_W tyle razy, ile bajtów jest w potrzebnym dla nas pakiecie.
         return -1;
-    more[0] = fifo_count / packet_size - 1;
-    sensors[0] = 0;
+    more[0] = fifo_count / packet_size - 1; // zapisz do zmiennej podanej jako parametr funkcji, ile jeszcze zostało pakietów do odczytania
+    sensors[0] = 0; // wyzeruj zmienną "sensors"
 
-    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_XYZ_ACCEL) {
+    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_XYZ_ACCEL) { // odczytaj dane z akcelerometra
         accel[0] = (data[index+0] << 8) | data[index+1];
         accel[1] = (data[index+2] << 8) | data[index+3];
         accel[2] = (data[index+4] << 8) | data[index+5];
-        sensors[0] |= INV_XYZ_ACCEL;
+        sensors[0] |= INV_XYZ_ACCEL; // zapisz w zmiennej "sensors", że odczytałeś dane dla akcelerometra
         index += 6;
     }
-    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_X_GYRO) {
+    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_X_GYRO) { // odczytaj dane z osi x żyroskopu
         gyro[0] = (data[index+0] << 8) | data[index+1];
-        sensors[0] |= INV_X_GYRO;
+        sensors[0] |= INV_X_GYRO; // zapisz w zmiennej "sensors", że odczytałeś dane z osi x żyroskopu
         index += 2;
     }
-    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_Y_GYRO) {
+    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_Y_GYRO) { // odczytaj dane z osi y żyroskopu
         gyro[1] = (data[index+0] << 8) | data[index+1];
-        sensors[0] |= INV_Y_GYRO;
+        sensors[0] |= INV_Y_GYRO; // zapisz w zmiennej "sensors", że odczytałeś dane z osi x żyroskopu
         index += 2;
     }
-    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_Z_GYRO) {
+    if ((index != packet_size) && st.chip_cfg.fifo_enable & INV_Z_GYRO) { // odczytaj dane z osi y żyroskopu
         gyro[2] = (data[index+0] << 8) | data[index+1];
-        sensors[0] |= INV_Z_GYRO;
+        sensors[0] |= INV_Z_GYRO; // zapisz w zmiennej "sensors", że odczytałeś dane z osi x żyroskopu
         index += 2;
     }
 
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja zwracjąca jeden niestandardowy pakiet z bufora FIFO.
+
+ Niestandardowy oznacza tutaj, że jego długość i wielkośc nie odpowiadają
+ zdefiniowanym makrom lub włączonym sensorom.
+
+ Co ciekawe, funkcja działa tylko wtedy gdy włączony jest Digial Motion Processor.
+
+ ******************************************************************************/
 /**
  *  @brief      Get one unparsed packet from the FIFO.
  *  This function should be used if the packet is to be parsed elsewhere.
@@ -2126,33 +2314,33 @@ int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp,
 int mpu_read_fifo_stream(unsigned short length, unsigned char *data,
     unsigned char *more)
 {
-    unsigned char tmp[2];
-    unsigned short fifo_count;
-    if (!st.chip_cfg.dmp_on)
-        return -1;
-    if (!st.chip_cfg.sensors)
-        return -1;
+    unsigned char tmp[2]; // utwórz 1 bajtową zmienną "tmp"
+    unsigned short fifo_count; // utwórz 2 bajtów (16-bitową) zniemmną "fifo_count"
+    if (!st.chip_cfg.dmp_on) // jeśli DMP jest wyłączony to...
+        return -1; //...przerwij działanie
+    if (!st.chip_cfg.sensors) // jeśli żaden sensor nie jest włączony to...
+        return -1; //...przerwij działanie
 
-    if (i2c_read(st.hw->addr, st.reg->fifo_count_h, 2, tmp))
+    if (i2c_read(st.hw->addr, st.reg->fifo_count_h, 2, tmp)) // odczytaj ile danych jest dostępnych do dczytu z FIFO
         return -1;
-    fifo_count = (tmp[0] << 8) | tmp[1];
-    if (fifo_count < length) {
-        more[0] = 0;
-        return -1;
+    fifo_count = (tmp[0] << 8) | tmp[1]; // zapisz w zmiennej "fifo_count" ile zmiennych dostępnych jest do odczytu z FIFO
+    if (fifo_count < length) { // jeśli liczba danych do odczytu jest mniejsza niż rzadana długość do oczytu to...
+        more[0] = 0; //...poinforumuj, że nie ma nic więcej do oczytu oraz...
+        return -1; //...zwróc kod błędu
     }
-    if (fifo_count > (st.hw->max_fifo >> 1)) {
+    if (fifo_count > (st.hw->max_fifo >> 1)) { // jeśli FIFO jest już w połowie zapełniony to...
         /* FIFO is 50% full, better check overflow bit. */
-        if (i2c_read(st.hw->addr, st.reg->int_status, 1, tmp))
+        if (i2c_read(st.hw->addr, st.reg->int_status, 1, tmp)) //...sprawdź czy FIFO się nie przepełnił...
             return -1;
-        if (tmp[0] & BIT_FIFO_OVERFLOW) {
-            mpu_reset_fifo();
+        if (tmp[0] & BIT_FIFO_OVERFLOW) { //...jeśli tak to...
+            mpu_reset_fifo(); //...zresetuj FIFO
             return -2;
         }
     }
 
-    if (i2c_read(st.hw->addr, st.reg->fifo_r_w, length, data))
+    if (i2c_read(st.hw->addr, st.reg->fifo_r_w, length, data)) // odczytaj rządanę liczbę danych z FIFO
         return -1;
-    more[0] = fifo_count / length - 1;
+    more[0] = fifo_count / length - 1; // zapisz ile jeszcze zostało danych w FIFO do oczytania
     return 0;
 }
 
@@ -2173,8 +2361,8 @@ int mpu_read_fifo_stream(unsigned short length, unsigned char *data,
     "1 if devices on auxiliary I2C bus appear on the primary."
 
  Dość ciekawe jest to, że funkcja musi też modyfikować rejestr INT_PIN_CFG,
- ale dzieje się tak ze względu na to, że to tam właśnie znajduje się pin,
- który jest najważniejszy w konfiguracji trybu "bypass". Jeśli pin ten (I2C_BYPASS_EN)
+ ale dzieje się tak ze względu na to, że to tam właśnie znajduje się bit,
+ który jest najważniejszy w konfiguracji trybu "bypass". Jeśli bit ten (I2C_BYPASS_EN)
  jest ustawiony na '0' to żaden inny rejestr nie będzie w stanie włączyć
  trybu "bypass".
 
@@ -2229,6 +2417,23 @@ int mpu_set_bypass(unsigned char bypass_on)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+
+ Funkcja ustawiająca jaki locziny poziom odpowiada przerwaniu.
+
+ Dostępne opcje:
+ -> Active-when-Low,
+ -> Active-when-High.
+
+ Nie do końca rozumiem czemu ma służyć ta funkcja skoro, w gruncie rzeczy,
+ nie zapisuje nic do rejestrów czujnika.
+
+ Najprawdopodniej, wartość przypisane w tej funkcji używana jest potem 
+ przy inicjalizacji urządzenia.
+
+ ******************************************************************************/
 /**
  *  @brief      Set interrupt level.
  *  @param[in]  active_low  1 for active low, 0 for active high.
@@ -2236,7 +2441,7 @@ int mpu_set_bypass(unsigned char bypass_on)
  */
 int mpu_set_int_level(unsigned char active_low)
 {
-    st.chip_cfg.active_low_int = active_low;
+    st.chip_cfg.active_low_int = active_low; // wpisz zadaną konfigurację do struktury konfiguracyjnej
     return 0;
 }
 
@@ -2254,6 +2459,10 @@ int mpu_set_int_level(unsigned char active_low)
  Może dziwić, że pojawiają sie tu linijki dotyczące bypass mode czy ustawienia
  związane active-when-low. Dzieje się tak dlatego, że funkcja musi to zweryfikować
  aby zachować te ustawienia takie jak były przed jej wywołaniem.
+
+ Paramtr: enable
+   -> 1 => włącz latched interrupts,
+   -> 0 => wyłącz latched interrupts.
 
  ******************************************************************************/
 /**
