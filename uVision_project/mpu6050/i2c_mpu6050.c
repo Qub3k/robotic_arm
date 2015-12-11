@@ -4,20 +4,17 @@ void i2c_init(void) {
   /* Enable clock to the pins used as SCL(PTE1) and SDA(PTE0) */
   SIM->SCGC5 |= SIM_SCGC5_PORTE_MASK;
   
-  /* Enable clock to I2C => I2C0 is driven by the Bus Clock/2 = 12 MHz*/
+  /* Enable clock to I2C => I2C0 is driven by the Bus Clock = 24 MHz*/
   SIM->SCGC4 |= SIM_SCGC4_I2C0_MASK;
   
   /* Set MUX configuration of PTE0 and PTE1 to I2C */
   PORTE->PCR[0] |= PORT_PCR_MUX(6);
   PORTE->PCR[1] |= PORT_PCR_MUX(6);
   
-  /* Minimum "SCL start hold time" for MPU-6050 is 600 ns so we may set it to 9.833 us to be sure 
-   * that everything is OK.
-   * SCL start hold time = delay from fallinge edge of SDA(while SCL is high = start condition) 
-   *                       to falling edge of SCL (end of START signal)
-   * Minimum "SCL stop hold time" is 0.6 us = 600 ns so we may make it approx. 10.083 us.
-   * Minimum "SDA hold time" is 0 us => we set it to 2.7499 us 
-   * The resulting Baud Rate is 50 kBd/s = 50 kbit/s */
+  /* Minimum "SCL start hold time" is 0.6 us = 600 ns so we may set it equal to 4.917 us  
+   * Minimum "SCL stop hold time" is 0.6 us = 600 ns so we may make it approx. 5.042 us.
+   * Minimum "SDA hold time" is 0 us => we set it to 1.375 us 
+   * The resulting Baud Rate is 100 kBd/s =  100 kbit/s */
   I2C0->F &= ~I2C_F_MULT_MASK; // mul = 1
   I2C0->F |= I2C_F_ICR(0x1F); // SCL divider = 240
   
