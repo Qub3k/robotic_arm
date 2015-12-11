@@ -51,9 +51,6 @@
   W tej konkretnej implementacji, twórcy posługują się makrami preprocesora,
   aby włączyć kod odpowiedni dla urządzenia.
 
-  Zadanie: sprawdzić w jaki sposób nasz mikrokontroler mógłby implementować te
-           funckje.
-
  ******************************************************************************/
 /******************************************************************************
     
@@ -64,13 +61,13 @@
 
 *******************************************************************************/
 #define delay_ms(x) delay_mc(5*(x))
-#define log_i(...) do {} while (0)
-#define log_e(...) do {} while (0)
+#define log_i(...) do {} while (0) // wykorzystaj komunikacje UART do implementacji logowania
+#define log_e(...) do {} while (0) // wykorzystaj komunikacje UART do implementacji logowania
 #define min(a,b) ((a<b)?a:b) 
-static inline int reg_int_cb(struct int_param_s *int_param) {
+static inline int reg_int_cb(struct int_param_s *int_param) { // pomyśl jak zaimplementować tę funkcje
   return 0;
 }
-unsigned long int get_ms(unsigned long int *count) { count[0] = 0; return 0;};
+unsigned long int get_ms(unsigned long int *count) { count[0] = 0; return 0;}; // zaimplementuj te funkcje za pomocą jakiegoś licznika licznika
 // /* The following functions must be defined for this platform:
 //  * i2c_write(unsigned char slave_addr, unsigned char reg_addr,
 //  *      unsigned char length, unsigned char const *data)
@@ -170,7 +167,7 @@ unsigned long int get_ms(unsigned long int *count) { count[0] = 0; return 0;};
                     Początek przykładowego kodu od InvenSense
 
     Prawdopodobnie zbędy kod, ale może służyć jako punkt odniesienia.
-    Na pewno część z AK8975 oraz AK8963 nam się nie przyda bo to ą kompasy.
+    Na pewno część z AK8975 oraz AK8963 nam się nie przyda bo to są kompasy.
 
 *******************************************************************************/    
 // /* Time for some messy macro work. =]
@@ -2504,28 +2501,32 @@ int mpu_set_int_latched(unsigned char enable)
 
                             ROBOTIC ARM DESIGN LAB 
  
- Funckja słóżąca do odczytu wyników po "self-test" dla akcelerometru.
+ Funckja służąca do ustawiania wartości "Factory Trim" na podastawie wyników
+ otzymanych po wykonaniu się funkcji "Self-test"
 
  shift_code[0] = XA_TEST  
  shift_code[1] = YA_TEST
  shift_code[2] = ZA_TEST
 
+ Na podsawie tych danych, funkcja wylicza wartości "factory trim" dla urządzenia.
+
  ******************************************************************************/
 static int get_accel_prod_shift(float *st_shift)
 {
-    unsigned char tmp[4], shift_code[3], ii; // utwó©z 4 bajtową zmienną "tmp", 3 bajtową zmienną shift_code oraz 1 bajtową zmienną ii
+    unsigned char tmp[4], shift_code[3], ii; // utwórz 4 bajtową zmienną "tmp", 3 bajtową zmienną shift_code oraz 1 bajtową zmienną ii
 
     if (i2c_read(st.hw->addr, 0x0D, 4, tmp)) // odczytaj zawartość 4 kolejnych rejestrów zaczynając od rejestru o adresie 0x0D (Self-test registers)
         return 0x07;
 
-    shift_code[0] = ((tmp[0] & 0xE0) >> 3) | ((tmp[3] & 0x30) >> 4);
-    shift_code[1] = ((tmp[1] & 0xE0) >> 3) | ((tmp[3] & 0x0C) >> 2);
-    shift_code[2] = ((tmp[2] & 0xE0) >> 3) | (tmp[3] & 0x03);
+    shift_code[0] = ((tmp[0] & 0xE0) >> 3) | ((tmp[3] & 0x30) >> 4); // szczytaj wyniki testu dla osi x akcelerometra
+    shift_code[1] = ((tmp[1] & 0xE0) >> 3) | ((tmp[3] & 0x0C) >> 2); // sczytaj wyniki testu dla osi y akcelerometra
+    shift_code[2] = ((tmp[2] & 0xE0) >> 3) | (tmp[3] & 0x03); // sczytaj wyniki testu dla osi z akcelerometra
     for (ii = 0; ii < 3; ii++) {
-        if (!shift_code[ii]) {
-            st_shift[ii] = 0.f;
-            continue;
+        if (!shift_code[ii]) { // jeśli wynik dla którejkolwiek osi wyniesie 0 to...
+            st_shift[ii] = 0.f; // ...zapisz wynik jako zero typu zmiennoprzecinkowego ( zgodne z data sheet'em )
+            continue; // ropocznij kolejną iteracje pętli
         }
+        // W innym wypadku, wykorzystaj dane z pomiarów do wyliczenia "factory trim" dla akcelerometru
         /* Equivalent to..
          * st_shift[ii] = 0.34f * powf(0.92f/0.34f, (shift_code[ii]-1) / 30.f)
          */
@@ -2536,51 +2537,79 @@ static int get_accel_prod_shift(float *st_shift)
     return 0;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+ 
+ Funckja służąca do analizy danych z funkcji "self-test" dla ackelerometra.
+
+ bias_regular = accelerometer output with Self-test Enabled
+ biar_st      = accelerometer output with Self-test Disabled
+
+ Self Test Response = biar_regular - bias_st
+
+ ******************************************************************************/
 static int accel_self_test(long *bias_regular, long *bias_st)
 {
-    int jj, result = 0;
-    float st_shift[3], st_shift_cust, st_shift_var;
+    int jj, result = 0; // utwórz dwie 32-bitowe zmienne
+    float st_shift[3], st_shift_cust, st_shift_var; 
 
-    get_accel_prod_shift(st_shift);
+    get_accel_prod_shift(st_shift); // sczytaj wartości "Factory Trim" dla akcelerometra
     for(jj = 0; jj < 3; jj++) {
-        st_shift_cust = labs(bias_regular[jj] - bias_st[jj]) / 65536.f;
-        if (st_shift[jj]) {
-            st_shift_var = st_shift_cust / st_shift[jj] - 1.f;
-            if (fabs(st_shift_var) > test.max_accel_var)
-                result |= 1 << jj;
+        st_shift_cust = labs(bias_regular[jj] - bias_st[jj]) / 65536.f; // Self Test Response = accelerometer output with Self-test Enabled - accelerometer output with Self-test Disabled
+        if (st_shift[jj]) { // jeśli Factory trim jest większy od zera to...
+            st_shift_var = st_shift_cust / st_shift[jj] - 1.f; // ...wylicz odchylenie Self Test Response od Factory Trim
+            if (fabs(st_shift_var) > test.max_accel_var) // jeśli odchylenie to przekroczy maksymalną dopuszczalną wartość to...
+                result |= 1 << jj; // zapisz kod w błędu w miejscu odpowiadającym testowanej osi
         } else if ((st_shift_cust < test.min_g) ||
-            (st_shift_cust > test.max_g))
-            result |= 1 << jj;
+            (st_shift_cust > test.max_g)) // jeśli Self Test reponse wychodzi poza dopuszczalny zakres to...
+            result |= 1 << jj; //...ustaw kod błędu w odpowiedniej osi
     }
 
     return result;
 }
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+ 
+ Funckja służąca do analizy danych z funkcji "self-test" dla żyroskopu.
+
+ bias_regular = gyro output with Self-test Enabled
+ bias_st      = gyro output with Self-test Disabled
+ 
+ Self Test Response = biar_regular - bias_st
+
+ tmp[0] = XG_TEST
+ tmp[1] = YG_TEST
+ tmp[2] = ZG_TEST
+
+ ******************************************************************************/
 static int gyro_self_test(long *bias_regular, long *bias_st)
 {
     int jj, result = 0;
     unsigned char tmp[3];
     float st_shift, st_shift_cust, st_shift_var;
 
-    if (i2c_read(st.hw->addr, 0x0D, 3, tmp))
+    if (i2c_read(st.hw->addr, 0x0D, 3, tmp)) // odczytaj 3 rejestry zaczynając od rejestru 0x0D (Self-test)
         return 0x07;
 
-    tmp[0] &= 0x1F;
-    tmp[1] &= 0x1F;
-    tmp[2] &= 0x1F;
+    tmp[0] &= 0x1F; // oczytaj tylko 5 najniższych bitów = XG_TEST
+    tmp[1] &= 0x1F; // oczytaj tylko 5 najniższych bitów = YG_TEST
+    tmp[2] &= 0x1F; // oczytaj tylko 5 najniższych bitów = ZG_TEST
 
     for (jj = 0; jj < 3; jj++) {
-        st_shift_cust = labs(bias_regular[jj] - bias_st[jj]) / 65536.f;
-        if (tmp[jj]) {
-            st_shift = 3275.f / test.gyro_sens;
+        st_shift_cust = labs(bias_regular[jj] - bias_st[jj]) / 65536.f; // wylicz Self Test Response na podstawie gyro output with Self-test Enabled i gyro output with Self-test Disabled
+        if (tmp[jj]) { // jeśli XG_TEST, YG_TEST lub ZG_TEST jest różny od zera to...
+            st_shift = 3275.f / test.gyro_sens; 
             while (--tmp[jj])
-                st_shift *= 1.046f;
-            st_shift_var = st_shift_cust / st_shift - 1.f;
-            if (fabs(st_shift_var) > test.max_gyro_var)
-                result |= 1 << jj;
-        } else if ((st_shift_cust < test.min_dps) ||
-            (st_shift_cust > test.max_dps))
-            result |= 1 << jj;
+                st_shift *= 1.046f; //...wylicz factory trim oraz...
+            st_shift_var = st_shift_cust / st_shift - 1.f; // ...wylicz odchylenie Self Test Response od Factory Trim
+            if (fabs(st_shift_var) > test.max_gyro_var) // jeśli wynik wychodzi poza zakres to...
+                result |= 1 << jj; //... ustaw kod błędu dla konkretnej osi
+        } else if ((st_shift_cust < test.min_dps) || 
+            (st_shift_cust > test.max_dps)) // jeśli Self Test Response wychodzi poza zakres to...
+            result |= 1 << jj; //...ustaw błąd w odpowiednim rejestrze
     }
     return result;
 }
@@ -2641,6 +2670,18 @@ static int gyro_self_test(long *bias_regular, long *bias_st)
 #endif 
 /* koniec makra MPU6050 */
 
+/******************************************************************************
+
+                            ROBOTIC ARM DESIGN LAB 
+ 
+ Funckja służąca do wyliczania wyników wyjściowych sensorów gdy funkcja
+ Self-test jest wyłączona.
+
+ W tym kodzie, nosi to nazwy:
+    -> "gyro output with Self-test Disabled"
+    -> oraz "accel output with Self-test Disabled"
+
+ ******************************************************************************/
 static int get_st_biases(long *gyro, long *accel, unsigned char hw_test)
 {
     unsigned char data[MAX_PACKET_LENGTH];

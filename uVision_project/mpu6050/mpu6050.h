@@ -102,13 +102,16 @@ int mpu_set_bypass(unsigned char bypass_on);
  ***************************************/
 /* Deklaracja funkcji służącej do wejścia w tryp "lop-power accelerometer-only mode". */
 int mpu_lp_accel_mode(unsigned char rate);
+/* Enters LP accel motion interrupt mode. */
 int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time, unsigned char lpa_freq);
 /* Funkcja ustawiająca jaki locziny poziom odpowiada przerwaniu. */
 int mpu_set_int_level(unsigned char active_low);
 /* Funkcja włączająca tryb "latched interrupts" dla pinu INT. */
 int mpu_set_int_latched(unsigned char enable);
 
+/* Enable/disable DMP support. */
 int mpu_set_dmp_state(unsigned char enable);
+/* Get DMP state. */
 int mpu_get_dmp_state(unsigned char *enabled);
 
 /* Funkcja zwracające aktualne ustawienie Digital Low Pass Filter */
@@ -126,6 +129,7 @@ int mpu_get_accel_fsr(unsigned char *fsr);
 /* Funkcja ustawiająca zakres pracy akcelerometru. */
 int mpu_set_accel_fsr(unsigned char fsr);
 
+/* Get the compass full-scale range. */
 int mpu_get_compass_fsr(unsigned short *fsr);
 
 /* Funkcja zwracająca ustawienia czułości żyroskopu. */
@@ -164,6 +168,7 @@ int mpu_set_accel_bias(const long *accel_bias);
 int mpu_get_gyro_reg(short *data, unsigned long *timestamp);
 /* Deklaracja funkcji służącej do sczytywania pomiarów z akcelerometru bezpośrednio z czujnika */
 int mpu_get_accel_reg(short *data, unsigned long *timestamp);
+/* Read raw compass data. */
 int mpu_get_compass_reg(short *data, unsigned long *timestamp); // tej funkcji raczej nie będziemy używać ( a nawet napewno )
 /* Deklaracja funkcji służącej do sczytywania pomiarów z termometru bezpośrednio z czujnika */
 int mpu_get_temperature(long *data, unsigned long *timestamp);
@@ -177,14 +182,18 @@ int mpu_read_fifo_stream(unsigned short length, unsigned char *data, unsigned ch
 /* Deklaracja funkcji służącej do resetowania bufora FIFO. */
 int mpu_reset_fifo(void);
 
+/* Write to the DMP memory. */
 int mpu_write_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);
+/* Read from the DMP memory. */
 int mpu_read_mem(unsigned short mem_addr, unsigned short length, unsigned char *data);
+/* Load and verify DMP image. */
 int mpu_load_firmware(unsigned short length, const unsigned char *firmware, unsigned short start_addr, unsigned short sample_rate);
 
 /* Deklaracja funkcji służącej do wypisywania zawartości rejstrów urządzenia. */
 int mpu_reg_dump(void);
 /* Deklaracja funkcji służącej do oczytywania zawartości konkretnego rejestru. */
 int mpu_read_reg(unsigned char reg, unsigned char *data);
+/* Trigger gyro/accel/compass self-test. */
 int mpu_run_self_test(long *gyro, long *accel);
 int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));
 
