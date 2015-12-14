@@ -27,12 +27,21 @@
 /* Include the header with the mc_delay function */
 #include "extra.h"
 
+/* Include the UART communication header */
+#include "uart.h"
+
+/* Add the MKL46Z header */
+#include "MKL46Z4.h"
+
 #define INV_X_GYRO      (0x40)
 #define INV_Y_GYRO      (0x20)
 #define INV_Z_GYRO      (0x10)
 #define INV_XYZ_GYRO    (INV_X_GYRO | INV_Y_GYRO | INV_Z_GYRO)
 #define INV_XYZ_ACCEL   (0x08)
 #define INV_XYZ_COMPASS (0x01) // ten define nam się nie przyda, bo nie używamy kompasu
+
+/* Note the compiler that we use the FRDM-KL46Z board */
+#define MOTION_DRIVER_TARGET_FRDMKL46Z
 
 struct int_param_s {
 
@@ -64,7 +73,7 @@ struct int_param_s {
 /* Przykładowy kod: */
 // #elif defined MKL46Z
   unsigned long pin;
-  void (*cb)(void); // wskaźnik do funkcji "callback"
+  void (*ISR)(void); // wskaźnik do funkcji "callback"
 
 // #endif
 };

@@ -60,11 +60,18 @@
     naszych własnych funkcji
 
 *******************************************************************************/
+void PORTA_IRQHandler(void) {
+  /* Do something */
+}
 #define delay_ms(x) delay_mc(5*(x))
-#define log_i(...) do {} while (0) // wykorzystaj komunikacje UART do implementacji logowania
-#define log_e(...) do {} while (0) // wykorzystaj komunikacje UART do implementacji logowania
+#define log_i uart_transmit
+#define log_e uart_transmit
 #define min(a,b) ((a<b)?a:b) 
+#define i2c_read i2c_read_registers
+#define i2c_write i2c_write_registers
 static inline int reg_int_cb(struct int_param_s *int_param) { // pomyśl jak zaimplementować tę funkcje
+  /* Configure the interrupt routine for a proper interrupt set at MPU */
+  int_param->ISR = PORTA_IRQHandler;
   return 0;
 }
 unsigned long int get_ms(unsigned long int *count) { count[0] = 0; return 0;}; // zaimplementuj te funkcje za pomocą jakiegoś licznika licznika
@@ -891,8 +898,8 @@ int mpu_reg_dump(void)
     for (ii = 0; ii < st.hw->num_reg; ii++) { // iteruj po wszystkich rejestrach urządzenia
         if (ii == st.reg->fifo_r_w || ii == st.reg->mem_r_w) // pomiń rejestr FIFO_R_W oraz MEM_R_W
             continue;
-        if (i2c_read(st.hw->addr, ii, 1, &data)) // jeśli odczytanie któregokolwiek rejestru się nie powiedzie to przerwij działanie funkcji
-            return -1;
+        if (i2c_read(st.hw->addr, ii, 1, &data)) // jeśli odczytanie któregokolwiek rejestru się nie powiedzie to...
+            return -1; //... przerwij działanie funkcji
         log_i("%#5x: %#5x\r\n", ii, data); // przekaż do funkcji logującej zawartość każdego rejestru
     }
     return 0;
@@ -964,10 +971,11 @@ int mpu_init(struct int_param_s *int_param)
     data[0] = 0x00;
     if (i2c_write(st.hw->addr, st.reg->pwr_mgmt_1, 1, data)) // wyzeruj cały rejestr PWR_MGMT_1 aby obudzić urządzenie
         return -1;
-
+        
     /* Kolejne linijki to ustawienia od producenta związane z numerem seryjnym urządzenia 
-       Wygląda na to, że niektóre czujniki osbługują tylko połowę nominalnej czułości     
-       ackelerometru jaka jest dla MPU-6050 - myślę, że można to tu zostawić */
+     * Wygląda na to, że niektóre czujniki osbługują tylko połowę nominalnej czułości     
+     * ackelerometru jaka jest dla MPU-6050 - myślę, że można to tu zostawić 
+     */
 // #if defined MPU6050
     /* Check product revision. */
     if (i2c_read(st.hw->addr, st.reg->accel_offs, 6, data)) // odczytaj 6 rejestrów zaczynając od rejestru 0x06 czyli ACCEL_OFFS (nie ma takiego rejestru w data sheet'cie)
@@ -981,7 +989,7 @@ int mpu_init(struct int_param_s *int_param)
         else if (rev == 2) // jeśli "rev" = 2 to nie ustawiaj akcelerometru w tryb "half sensitivity"
             st.chip_cfg.accel_half = 0;
         else { // jeśli wychodzi inny wynik "rev" to zareportuj to
-            log_e("Unsupported software product rev %d.\n", rev);
+            log_e("Unsupported software product rev %d.\r\n", rev);
             return -1;
         }
     } else { // jeśli "rev" wyjdzie równe 0
@@ -989,8 +997,7 @@ int mpu_init(struct int_param_s *int_param)
             return -1;
         rev = data[0] & 0x0F; // odczytaj tylko dolny półbajt rejestru PROD_ID
         if (!rev) { // jeśli "rev" wychodzi 0 to wypisz następującą informacje
-            log_e("Product ID read as 0 indicates device is either "
-                "incompatible or an MPU3050.\n");
+            log_e("Product ID read as 0 -> device is incompatible or an MPU3050.\r\n");
             return -1;
         } else if (rev == 4) { // jeśli "rev" wychodzi 4 to włącz tryb akcelerometru "half-sensitivity"
             log_i("Half sensitivity part found.\n");
@@ -1020,9 +1027,10 @@ int mpu_init(struct int_param_s *int_param)
 // #endif // koniec niepotrzebnego makra dla MPU6500
 
     /* Ustawiamy wcześniej niezainicjalizowane wartości na 255, żeby potem wiedzieć
-       czy poprawnie je nadpisaliśmy używając komunikacji I2C.
-       Należy pamietać, że obiekt "chip_cfg" to struktura, która przechowuje
-       obecnie ustawioną konfigurację urządzenia. */
+     * czy poprawnie je nadpisaliśmy używając komunikacji I2C.
+     * Należy pamietać, że obiekt "chip_cfg" to struktura, która przechowuje
+     * obecnie ustawioną konfigurację urządzenia. 
+     */
 
     /* Set to invalid values to ensure no I2C writes are skipped. */
     st.chip_cfg.sensors = 0xFF;
@@ -1038,12 +1046,13 @@ int mpu_init(struct int_param_s *int_param)
 // #endif // koniec makra kompasu
 
     /* Kolejne linijki nic nie ustawiając w urządzeniu a jednie zmieniają dane struktury, która
-       przechowuje obecną konfigurację czujnika - to co się tu dzieje to zapewne wpisywanie wartości
-       domyślnych, które pojawiają się po każdym resecie urządzenia
-       Zgodnie z data sheet'em, po restarcie:
-        -> wszystkie rejestry zapisane są wartościami 0x00
-        -> z wyjątkiem rejestru 107(PWR_MGMT_1), który zainicjalizowany jest wartością 0x40 => domyślnie urządzenie jest w trybie "SLEEP"
-        -> oraz z wyjątkiem rejestru 117(WHO_AM_I), który zainicjalizowany jest wartością 0x68 => adres I2C urządzenia */
+     * przechowuje obecną konfigurację czujnika - to co się tu dzieje to zapewne wpisywanie wartości
+     * domyślnych, które pojawiają się po każdym resecie urządzenia
+     * Zgodnie z data sheet'em, po restarcie:
+     *  -> wszystkie rejestry zapisane są wartościami 0x00
+     *  -> z wyjątkiem rejestru 107(PWR_MGMT_1), który zainicjalizowany jest wartością 0x40 => domyślnie urządzenie jest w trybie "SLEEP"
+     *  -> oraz z wyjątkiem rejestru 117(WHO_AM_I), który zainicjalizowany jest wartością 0x68 => adres I2C urządzenia 
+     */
 
     /* mpu_set_sensors always preserves this setting. */
     st.chip_cfg.clk_src = INV_CLK_PLL; // pierwsze użycie typu wyliczeniowego "clock_sel_e" mówiące o tym, że będziemy korzystać z bardziej dokładnego zegara PLL żyroskopu
@@ -1058,22 +1067,38 @@ int mpu_init(struct int_param_s *int_param)
     st.chip_cfg.dmp_sample_rate = 0; // opsi producenta: "Sampling rate used when DMP is enabled."
 
     /* Następujące funkcje wprowadzają zmiany opisane przez kilka wcześniejszych linijek, które
-       modyfikowały jedynie strukturę przechowującą obecną konfigurację urządzenia 
-       Należy zauważyć, że każda funkcja zwraca 0 jeśli wykonała się poprawnie. */
+     * modyfikowały jedynie strukturę przechowującą obecną konfigurację urządzenia 
+     * Należy zauważyć, że każda funkcja zwraca 0 jeśli wykonała się poprawnie. 
+     */
 
-    if (mpu_set_gyro_fsr(2000)) // FSR = Full Scale Range. Tutaj, funkcja ustawia zakres żyro. na +/- 2000 dps
+    if (mpu_set_gyro_fsr(2000)){ // FSR = Full Scale Range. Tutaj, funkcja ustawia zakres żyro. na +/- 2000 dps
         return -1;
-    if (mpu_set_accel_fsr(2)) // Funkcja ustawia czułość akcelerometru na +/- 2g
+    }else{
+      log_i("\tGyro FSR \t\t= +/- 2000 dps\r\n");
+    }
+    if (mpu_set_accel_fsr(2)){ // Funkcja ustawia czułość akcelerometru na +/- 2g
         return -1;
-    if (mpu_set_lpf(42)) // Funkcja ustawia cut-off filtra dolnoprzepustowego na 42 Hz
+    }else{
+      log_i("\tAccel FSR \t\t= +/- 2 g\r\n");
+    }
+    if (mpu_set_lpf(42)){ // Funkcja ustawia cut-off filtra dolnoprzepustowego na 42 Hz
         return -1;
-    if (mpu_set_sample_rate(50)) // Funkcja ustawiające Sampling Rate dla wszystkich czujników
+    }else{
+      log_i("\tLow-pass cut-off \t= 42 Hz\r\n");
+    }
+    if (mpu_set_sample_rate(50)){ // Funkcja ustawiające Sampling Rate dla wszystkich czujników
         return -1;
-    if (mpu_configure_fifo(0)) // Domyślnie, nie przekierowuj żadnych danych z czujników do FIFO
+    }else{
+      log_i("\tSample rate \t\t= 50 Hz\r\n");
+    }
+    if (mpu_configure_fifo(0)){ // Domyślnie, nie przekierowuj żadnych danych z czujników do FIFO
         return -1;
+    }else{
+      log_i("\tFIFO \t\t\t= disabled\r\n");
+    }
 
-    if (int_param) // jeśli adres do struktury konfigurującej przerwania dla danej platformty jest inny niż 0(NULL pointer) to:
-        reg_int_cb(int_param); // skonfiguruj odpowiednio przerwania dla danej platformy
+    if (int_param) // jeśli adres do struktury konfigurującej przerwania dla danej platformty jest inny niż 0(NULL pointer) to...
+        reg_int_cb(int_param); // ...skonfiguruj odpowiednio przerwania dla danej platformy
 
 // #ifdef AK89xx_SECONDARY // nie uzywamy kompasu więc możemy zakomentować to makro
 //     setup_compass();
@@ -1081,8 +1106,11 @@ int mpu_init(struct int_param_s *int_param)
 //         return -1; // dotąd na pewno nie potrzebujemy tego makra
 // #else // kod w tym makrze jest potrzebny ponieważ chcemy wyłączyć bypass mode
     /* Already disabled by setup_compass. */
-    if (mpu_set_bypass(0)) // wyłacz tryb "bypass"
+    if (mpu_set_bypass(0)) {// wyłacz tryb "bypass"
         return -1;
+    }else{
+      log_i("\tBypass mode \t\t= disabled\r\n");
+    }
 // #endif
 
     mpu_set_sensors(0); // Domyślnie, wyłącz wszystkie sensory -> urządzenie przechodzi w tryb DEEP_SLEEP
@@ -1917,7 +1945,7 @@ int mpu_get_gyro_sens(float *sens)
  Funkcja zwracająca ustawienia czułości akcelerometra.
 
  Funkcja ta tłumaczy Full Scale Range na LSB/g czyli ile kroków konwertera
- analogowo-cyfrowego odpowiada jednepu g.
+ analogowo-cyfrowego odpowiada jednemu g.
 
  Te wartości można odczytać bezpośrednio z data sheet'a.
 
@@ -2873,7 +2901,7 @@ int mpu_run_self_test(long *gyro, long *accel)
         goto restore;
     }
     accel_result = accel_self_test(accel, accel_st);
-    gyro_result = gyro_self_test(gyro, gyro_st);
+    gyro_result = gyro_self_test(gyro, gyro_st);    
 
     result = 0;
     if (!gyro_result)
@@ -3077,110 +3105,110 @@ int mpu_get_dmp_state(unsigned char *enabled)
 
 
 /* This initialization is similar to the one in ak8975.c. */
-static int setup_compass(void)
-{
-#ifdef AK89xx_SECONDARY
-    unsigned char data[4], akm_addr;
+//static int setup_compass(void) // nie używamy tej funkcji, bo nie korzystamy z kompasu
+//{
+//#ifdef AK89xx_SECONDARY
+//    unsigned char data[4], akm_addr;
 
-    mpu_set_bypass(1);
+//    mpu_set_bypass(1);
 
-    /* Find compass. Possible addresses range from 0x0C to 0x0F. */
-    for (akm_addr = 0x0C; akm_addr <= 0x0F; akm_addr++) {
-        int result;
-        result = i2c_read(akm_addr, AKM_REG_WHOAMI, 1, data);
-        if (!result && (data[0] == AKM_WHOAMI))
-            break;
-    }
+//    /* Find compass. Possible addresses range from 0x0C to 0x0F. */
+//    for (akm_addr = 0x0C; akm_addr <= 0x0F; akm_addr++) {
+//        int result;
+//        result = i2c_read(akm_addr, AKM_REG_WHOAMI, 1, data);
+//        if (!result && (data[0] == AKM_WHOAMI))
+//            break;
+//    }
 
-    if (akm_addr > 0x0F) {
-        /* TODO: Handle this case in all compass-related functions. */
-        log_e("Compass not found.\n");
-        return -1;
-    }
+//    if (akm_addr > 0x0F) {
+//        /* TODO: Handle this case in all compass-related functions. */
+//        log_e("Compass not found.\n");
+//        return -1;
+//    }
 
-    st.chip_cfg.compass_addr = akm_addr;
+//    st.chip_cfg.compass_addr = akm_addr;
 
-    data[0] = AKM_POWER_DOWN;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
-        return -1;
-    delay_ms(1);
+//    data[0] = AKM_POWER_DOWN;
+//    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
+//        return -1;
+//    delay_ms(1);
 
-    data[0] = AKM_FUSE_ROM_ACCESS;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
-        return -1;
-    delay_ms(1);
+//    data[0] = AKM_FUSE_ROM_ACCESS;
+//    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
+//        return -1;
+//    delay_ms(1);
 
-    /* Get sensitivity adjustment data from fuse ROM. */
-    if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_ASAX, 3, data))
-        return -1;
-    st.chip_cfg.mag_sens_adj[0] = (long)data[0] + 128;
-    st.chip_cfg.mag_sens_adj[1] = (long)data[1] + 128;
-    st.chip_cfg.mag_sens_adj[2] = (long)data[2] + 128;
+//    /* Get sensitivity adjustment data from fuse ROM. */
+//    if (i2c_read(st.chip_cfg.compass_addr, AKM_REG_ASAX, 3, data))
+//        return -1;
+//    st.chip_cfg.mag_sens_adj[0] = (long)data[0] + 128;
+//    st.chip_cfg.mag_sens_adj[1] = (long)data[1] + 128;
+//    st.chip_cfg.mag_sens_adj[2] = (long)data[2] + 128;
 
-    data[0] = AKM_POWER_DOWN;
-    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
-        return -1;
-    delay_ms(1);
+//    data[0] = AKM_POWER_DOWN;
+//    if (i2c_write(st.chip_cfg.compass_addr, AKM_REG_CNTL, 1, data))
+//        return -1;
+//    delay_ms(1);
 
-    mpu_set_bypass(0);
+//    mpu_set_bypass(0);
 
-    /* Set up master mode, master clock, and ES bit. */
-    data[0] = 0x40;
-    if (i2c_write(st.hw->addr, st.reg->i2c_mst, 1, data))
-        return -1;
+//    /* Set up master mode, master clock, and ES bit. */
+//    data[0] = 0x40;
+//    if (i2c_write(st.hw->addr, st.reg->i2c_mst, 1, data))
+//        return -1;
 
-    /* Slave 0 reads from AKM data registers. */
-    data[0] = BIT_I2C_READ | st.chip_cfg.compass_addr;
-    if (i2c_write(st.hw->addr, st.reg->s0_addr, 1, data))
-        return -1;
+//    /* Slave 0 reads from AKM data registers. */
+//    data[0] = BIT_I2C_READ | st.chip_cfg.compass_addr;
+//    if (i2c_write(st.hw->addr, st.reg->s0_addr, 1, data))
+//        return -1;
 
-    /* Compass reads start at this register. */
-    data[0] = AKM_REG_ST1;
-    if (i2c_write(st.hw->addr, st.reg->s0_reg, 1, data))
-        return -1;
+//    /* Compass reads start at this register. */
+//    data[0] = AKM_REG_ST1;
+//    if (i2c_write(st.hw->addr, st.reg->s0_reg, 1, data))
+//        return -1;
 
-    /* Enable slave 0, 8-byte reads. */
-    data[0] = BIT_SLAVE_EN | 8;
-    if (i2c_write(st.hw->addr, st.reg->s0_ctrl, 1, data))
-        return -1;
+//    /* Enable slave 0, 8-byte reads. */
+//    data[0] = BIT_SLAVE_EN | 8;
+//    if (i2c_write(st.hw->addr, st.reg->s0_ctrl, 1, data))
+//        return -1;
 
-    /* Slave 1 changes AKM measurement mode. */
-    data[0] = st.chip_cfg.compass_addr;
-    if (i2c_write(st.hw->addr, st.reg->s1_addr, 1, data))
-        return -1;
+//    /* Slave 1 changes AKM measurement mode. */
+//    data[0] = st.chip_cfg.compass_addr;
+//    if (i2c_write(st.hw->addr, st.reg->s1_addr, 1, data))
+//        return -1;
 
-    /* AKM measurement mode register. */
-    data[0] = AKM_REG_CNTL;
-    if (i2c_write(st.hw->addr, st.reg->s1_reg, 1, data))
-        return -1;
+//    /* AKM measurement mode register. */
+//    data[0] = AKM_REG_CNTL;
+//    if (i2c_write(st.hw->addr, st.reg->s1_reg, 1, data))
+//        return -1;
 
-    /* Enable slave 1, 1-byte writes. */
-    data[0] = BIT_SLAVE_EN | 1;
-    if (i2c_write(st.hw->addr, st.reg->s1_ctrl, 1, data))
-        return -1;
+//    /* Enable slave 1, 1-byte writes. */
+//    data[0] = BIT_SLAVE_EN | 1;
+//    if (i2c_write(st.hw->addr, st.reg->s1_ctrl, 1, data))
+//        return -1;
 
-    /* Set slave 1 data. */
-    data[0] = AKM_SINGLE_MEASUREMENT;
-    if (i2c_write(st.hw->addr, st.reg->s1_do, 1, data))
-        return -1;
+//    /* Set slave 1 data. */
+//    data[0] = AKM_SINGLE_MEASUREMENT;
+//    if (i2c_write(st.hw->addr, st.reg->s1_do, 1, data))
+//        return -1;
 
-    /* Trigger slave 0 and slave 1 actions at each sample. */
-    data[0] = 0x03;
-    if (i2c_write(st.hw->addr, st.reg->i2c_delay_ctrl, 1, data))
-        return -1;
+//    /* Trigger slave 0 and slave 1 actions at each sample. */
+//    data[0] = 0x03;
+//    if (i2c_write(st.hw->addr, st.reg->i2c_delay_ctrl, 1, data))
+//        return -1;
 
-#ifdef MPU9150
-    /* For the MPU9150, the auxiliary I2C bus needs to be set to VDD. */
-    data[0] = BIT_I2C_MST_VDDIO;
-    if (i2c_write(st.hw->addr, st.reg->yg_offs_tc, 1, data))
-        return -1;
-#endif
+//#ifdef MPU9150
+//    /* For the MPU9150, the auxiliary I2C bus needs to be set to VDD. */
+//    data[0] = BIT_I2C_MST_VDDIO;
+//    if (i2c_write(st.hw->addr, st.reg->yg_offs_tc, 1, data))
+//        return -1;
+//#endif
 
-    return 0;
-#else
-    return -1;
-#endif
-}
+//    return 0;
+//#else
+//    return -1;
+//#endif
+//}
 
 /**
  *  @brief      Read raw compass data.
@@ -3292,32 +3320,33 @@ int mpu_get_compass_fsr(unsigned short *fsr)
 int mpu_lp_motion_interrupt(unsigned short thresh, unsigned char time,
     unsigned char lpa_freq)
 {
-    unsigned char data[3];
+    // unsigned char data[3]; // variable used only for MPU6500
 
     if (lpa_freq) {
-        unsigned char thresh_hw;
+        // unsigned char thresh_hw; // variable used only for MPU6500 board
 
-#if defined MPU6500
-        /* 1LSb = 4mg. */
-        if (thresh > 1020)
-            thresh_hw = 255;
-        else if (thresh < 4)
-            thresh_hw = 1;
-        else
-            thresh_hw = thresh >> 2;
-#endif
+//#if defined MPU6500 // nie będziemy używać tego makra
+//        /* 1LSb = 4mg. */
+//        if (thresh > 1020)
+//            thresh_hw = 255;
+//        else if (thresh < 4)
+//            thresh_hw = 1;
+//        else
+//            thresh_hw = thresh >> 2;
+//#endif // koniec nieużywanego makra
 
-        if (!time)
+        if (!time) {
             /* Minimum duration must be 1ms. */
             time = 1;
+        }
 
-#if defined MPU6500
-        if (lpa_freq > 640)
-#endif
-            /* At this point, the chip has not been re-configured, so the
-             * function can safely exit.
-             */
-            return -1;
+//#if defined MPU6500 // nie będziemy używać tego makra
+//        if (lpa_freq > 640)
+//            /* At this point, the chip has not been re-configured, so the
+//             * function can safely exit.
+//             */
+//            return -1;
+//#endif // koniec nieużywanego makra
 
         if (!st.chip_cfg.int_motion_only) {
             /* Store current settings for later. */
