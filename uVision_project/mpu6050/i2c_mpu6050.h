@@ -6,27 +6,27 @@
 #include "uart.h"
 
 /**
- * @brief Helper macro for {@see TOKENPASTE(a,b)} to merge token
+ * @brief Helper macro for {@see TOKENPASTE(a,b)} to merge token.
  */
 #define TOKENPASTE_HELPER(x, y) x ## y
 
 /**
- * @brief Merges two tokens, expanding any macros 
+ * @brief Merges two tokens, expanding any macros.
  */
 #define TOKENPASTE(x, y) TOKENPASTE_HELPER(x, y)
 
 /**
- * @brief Macro to mark variables that are unused by intention
+ * @brief Macro to mark variables that are unused by intention.
  */
 #define INTENTIONALLY_UNUSED(type) type __attribute__((unused)) TOKENPASTE(unused, __COUNTER__)
 
 /**
- * @brief Encodes the read address from the 7-bit slave address
+ * @brief Encodes the read address from the 7-bit slave address.
  */
 #define I2C_READ_ADDRESS(slaveAddress) 		((uint8_t)((slaveAddress << 1) | 1))
 
 /**
- * @brief Encodes the write address from the 7-bit slave address
+ * @brief Encodes the write address from the 7-bit slave address.
  */
 #define I2C_WRITE_ADDRESS(slaveAddress) 	((uint8_t)((slaveAddress << 1) | 0))
 
@@ -73,23 +73,27 @@ int i2c_write_registers(register uint8_t slaveId, register uint8_t registerAddre
 void i2c_initiate_register_read_at(const register uint8_t slaveId, const register uint8_t registerAddress);
 
 /**
- * @brief Initializes the I2C interface
+ * @brief Initializes the I2C interface.
  */
 void i2c_init(void);
 
 /**
- * @brief Waits for an I2C bus operation to complete
+ * @brief Waits for an I2C bus operation to complete.
  */
 static inline void i2c_wait(){
-  /* loop until interrupt is detected */
+  /** 
+  *  loop until interrupt is detected 
+  */
 	while((I2C0->S & I2C_S_IICIF_MASK)==0) {}	
     
-  /* clear interrupt flag */
+  /**
+  *	 clear interrupt flag
+  */
 	I2C0->S |= I2C_S_IICIF_MASK; 
 }
 
 /**
- * @brief Waits for an I2C bus operation to complete
+ * @brief Waits for an I2C bus operation to complete.
  */
 static inline void i2c_wait_while_busy(){
 	while((I2C0->S & I2C_S_BUSY_MASK)!=0) {}
@@ -131,7 +135,7 @@ static inline void i2c_enter_receive_mode_with_ack(){
  * Disabling ACK may be required when only one data byte will be read.
  */
 static inline void i2c_enter_receive_mode_without_ack(){
-	/* Straightforward method of clearing TX mode and
+	/** Straightforward method of clearing TX mode and
 	 * setting NACK bit sending.
 	 */
 	register uint8_t reg = I2C0->C1;
@@ -148,14 +152,14 @@ static inline void i2c_send_repeated_start(){
 }
 
 /**
- * @brief Sends a stop condition (also leaves TX mode)
+ * @brief Sends a stop condition (also leaves TX mode).
  */
 static inline void i2c_send_stop(){
 	I2C0->C1 &= ~((1 << I2C_C1_MST_SHIFT) & I2C_C1_MST_MASK) & ~((1 << I2C_C1_TX_SHIFT) & I2C_C1_TX_MASK);
 }
 
 /**
- * @brief Enables sending of ACK
+ * @brief Enables sending of ACK.
  * 
  * Enabling ACK may be required when more than one data byte will be read.
  */
@@ -164,7 +168,7 @@ static inline void i2c_enable_ack(){
 }
 
 /**
- * @brief Enables sending of NACK (disabling ACK)
+ * @brief Enables sending of NACK (disabling ACK).
  * 
  * Enabling NACK may be required when no more data byte will be read.
  */
@@ -175,8 +179,9 @@ static inline void i2c_disable_ack(){
 /**
  * @brief Sends a byte over the I2C bus and waits for the operation to complete
  * @param[in] value The byte to send
+ * I2C_SendBlocking().
  */
-static inline void i2c_send_byte(const uint8_t value){ // I2C_SendBlocking()
+static inline void i2c_send_byte(const uint8_t value){
 	I2C0->D = value;
 	i2c_wait();
 }
@@ -184,8 +189,9 @@ static inline void i2c_send_byte(const uint8_t value){ // I2C_SendBlocking()
 /**
  * @brief Reads a byte over the I2C bus and drives the clock for another byte
  * @return There received byte
+ * I2C_ReceiveDriving().
  */
-static inline uint8_t i2c_read_byte(){ //I2C_ReceiveDriving()
+static inline uint8_t i2c_read_byte(){ 
 	register uint8_t value = I2C0->D;
 	i2c_wait();
 	return value;
@@ -194,8 +200,9 @@ static inline uint8_t i2c_read_byte(){ //I2C_ReceiveDriving()
 /**
  * @brief Reads a byte over the I2C bus and drives the clock for another byte, while sending NACK
  * @return There received byte
+ * I2C_ReceiveDrivingWithNack().
  */
-static inline uint8_t I2C_read_byte_with_nack(){ // I2C_ReceiveDrivingWithNack()
+static inline uint8_t I2C_read_byte_with_nack(){ 
 	i2c_disable_ack();
 	return i2c_read_byte();
 }
@@ -203,8 +210,9 @@ static inline uint8_t I2C_read_byte_with_nack(){ // I2C_ReceiveDrivingWithNack()
 /**
  * @brief Reads the last byte over the I2C bus and sends a stop condition
  * @return There received byte
+ * I2C_ReceiveAndStop().
  */
-static inline uint8_t i2c_read_and_stop(){ // I2C_ReceiveAndStop()
+static inline uint8_t i2c_read_and_stop(){ 
 	i2c_send_stop();
 	return I2C0->D;
 }
@@ -214,21 +222,20 @@ static inline uint8_t i2c_read_and_stop(){ // I2C_ReceiveAndStop()
  * @return There received byte
  * 
  * The I2C module is in transmit mode afterwards.
+ * I2C_ReceiveAndRestart().
  */
-static inline uint8_t i2c_read_and_restart(){ // I2C_ReceiveAndRestart()
+static inline uint8_t i2c_read_and_restart(){ 
 	i2c_send_repeated_start();
 	return I2C0->D;
 }
 
 /**
  * @brief Drives the clock in receiver mode in order to receive the first byte.
+ *
+ *  I2C_ReceiverModeDriveClock().
  */
-static inline void i2c_read_dummy_byte(){ // I2C_ReceiverModeDriveClock()
+static inline void i2c_read_dummy_byte(){ 
 	INTENTIONALLY_UNUSED(register uint8_t) = I2C0->D;
 	i2c_wait();
 }
-
-//int i2c_write(unsigned char slave_addr, unsigned char reg_addr, unsigned char length, unsigned char const *data);
-//int i2c_read(unsigned char slave_addr, unsigned char reg_addr, unsigned char length, unsigned char *data);
-
 #endif
