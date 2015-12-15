@@ -1,6 +1,9 @@
 /**
- * @file queue.h
- * Library implementing the queue structures.
+ * @addtogroup  DRIVERS Sensor Driver Layer
+ * @brief       Hardware drivers to communicate with sensors via I2C.
+ * @{
+ * 		@file queue.h
+ * 		Library implementing the queue structures.
  */
 
 #ifndef QUEUE_H
@@ -54,3 +57,5 @@ int q_enqueue(Q_T *q, unsigned char d);
 unsigned char q_dequeue(Q_T *q);
 
 #endif
+
+/**@}*/

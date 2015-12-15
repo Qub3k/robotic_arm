@@ -1,6 +1,9 @@
 /**
- * @file extra.h
- * Library including functions useful in embedded progamming.
+ * @addtogroup  DRIVERS Sensor Driver Layer
+ * @brief       Hardware drivers to communicate with sensors via I2C.
+ * @{
+ * 		@file extra.h
+ * 		Library including functions useful in embedded progamming.
  */
 
 #ifndef extra_h
@@ -15,3 +18,5 @@
 void delay_mc(uint32_t value);
 
 #endif
+
+/**@}*/

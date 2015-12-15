@@ -1,12 +1,14 @@
 /**
-* @file  uart.h
-*
-* Communication via UART for FRDM-MKL46Z board.
-* For this code to work properly the "CLOCK_SETUP" must be set to 1:\n
-*   1 ... Multipurpose Clock Generator (MCG) in PLL Engaged External (PEE) mode
-*         Reference clock source for MCG module is an external crystal 8MHz
-*         Core clock = 48MHz, BusClock = 24MHz. 
-*/
+ * @addtogroup  DRIVERS Sensor Driver Layer
+ * @brief       Hardware drivers to communicate with sensors via I2C.
+ * @{
+ * 		@file  uart.h
+ *		Communication via UART for FRDM-MKL46Z board.
+ * 		For this code to work properly the "CLOCK_SETUP" must be set to 1:\n
+ *   		1 ... Multipurpose Clock Generator (MCG) in PLL Engaged External (PEE) mode
+ *         	      Reference clock source for MCG module is an external crystal 8MHz
+ *         	      Core clock = 48MHz, BusClock = 24MHz. 
+ */
 
 #ifndef UART_H
 #define UART_H
@@ -57,3 +59,5 @@ void uart_receive(char *data);
 void UART0_IRQHandler(void);
 
 #endif
+
+/**@}*/

@@ -1,6 +1,9 @@
 /**
- * @file float_MKL46Z.h
- * The library for parsing any float-realted operations performed on FRDM-KL46Z board.
+ * @addtogroup  DRIVERS Sensor Driver Layer
+ * @brief       Hardware drivers to communicate with sensors via I2C.
+ * @{
+ * 		@file float_MKL46Z.h
+ * 		The library for parsing any float-realted operations performed on FRDM-KL46Z board.
  */
 
 #ifndef FLOAT_MKL46Z_H
@@ -36,3 +39,5 @@ int intToStr(int x, char str[], int d);
 void ftoa(float n, char *buffer, int afterpoint);
   
 #endif
+
+/**@}*/
