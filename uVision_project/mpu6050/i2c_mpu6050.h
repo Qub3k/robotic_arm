@@ -1,3 +1,8 @@
+/**
+ * @file i2c_mpu6050.h
+ * Library used to establish the I2C communiation using the FRDM-MKL46Z board.
+ */
+
 #ifndef I2C_MPU6050_H
 #define I2C_MPU6050_H
 
