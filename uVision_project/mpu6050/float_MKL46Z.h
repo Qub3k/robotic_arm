@@ -4,21 +4,27 @@
 #include<stdio.h>
 #include<math.h>
 
-/* 
- * Reverses a string 'str' of length 'len' 
+/** 
+ * @brief Reverses a string 'str' of length 'len'.
  */
 void reverse(char *str, int len);
   
-/* 
- * Converts a given integer x to string str[].  d is the number
+/** 
+ * @brief Converts a given integer x to string str[]. d is the number
  * of digits required in output. If d is more than the number
  * of digits in x, then 0s are added at the beginning.
+ * @param[in] given integer x 
+ * @param[in] string array
+ * @param[in] control the right representation
  */
 int intToStr(int x, char str[], int d);
 
-/* 
- * Converts a floating point number to string.
+/** 
+ * @brief Converts a floating point number to string.
+ * @param[in] given floating point
+ * @param[in] simple buffer
+ * @param[in] parameter used to handle with more complex notation for e.g 233.007
  */
-void ftoa(float n, char *res, int afterpoint);
+void ftoa(float n, char *buffer, int afterpoint);
   
 #endif
