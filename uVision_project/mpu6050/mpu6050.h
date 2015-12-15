@@ -1,16 +1,13 @@
 /**
  * @file mpu6050.h
- * @brief Hardware drivers to communicate with sensors via I2C.
- * @details This header file was created in order to add the support for I2C communication
- * with the MPU-6050 interial measurement unit used in the "Robotic Arm" project.
+ * @brief Hardware drivers to communicate with thr sensor via I2C.
+ * @details Library for configuration the MPU-6050, as well as parsing
+ *			the information read from or written to the device.
  */
 
 #ifndef _INV_MPU_H_
 #define _INV_MPU_H_
 
-/** 
- * Testing whether doxygen will include this comment.
- */
 #include "i2c_mpu6050.h"
 #include "extra.h"
 #include "uart.h"
