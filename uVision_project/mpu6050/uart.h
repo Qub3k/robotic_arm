@@ -28,7 +28,7 @@
 /**
 * Maximum buffer size used for transmission.
 */
-#define MAX_BUFF_SIZE 64 
+#define MAX_BUFF_SIZE 100
 
 /**
 * Initializatino function.
@@ -64,9 +64,6 @@ void uart_receive(char *data);
 void UART0_IRQHandler(void);
 
 #endif
-<<<<<<< HEAD
 
 /**@}*/
 /**@}*/
-=======
->>>>>>> c90e81a5e6f1e21f223effaa2104e25dd52cece4
