@@ -78,18 +78,6 @@
         <IsCurrentTarget>1</IsCurrentTarget>
       </OPTFL>
       <CpuCode>14</CpuCode>
-      <Books>
-        <Book>
-          <Number>0</Number>
-          <Title>Schematics (FRDM-KL43Z)</Title>
-          <Path>C:\Keil_v5\ARM\PACK\Keil\Kinetis_KLxx_DFP\1.7.0\Boards\Freescale\FRDM-KL43Z\Documents\FRDM-KL43Z_SCH.pdf</Path>
-        </Book>
-        <Book>
-          <Number>1</Number>
-          <Title>User Manual (FRDM-KL43Z)</Title>
-          <Path>C:\Keil_v5\ARM\PACK\Keil\Kinetis_KLxx_DFP\1.7.0\Boards\Freescale\FRDM-KL43Z\Documents\FRDMKL43ZUG.pdf</Path>
-        </Book>
-      </Books>
       <DebugOpt>
         <uSim>0</uSim>
         <uTrg>1</uTrg>
@@ -277,6 +265,10 @@
           <Name>System Viewer\I2C0</Name>
           <WinId>35905</WinId>
         </Entry>
+        <Entry>
+          <Name>System Viewer\UART0</Name>
+          <WinId>35904</WinId>
+        </Entry>
       </SystemViewers>
     </TargetOption>
   </Target>
@@ -356,7 +348,7 @@
       <GroupNumber>1</GroupNumber>
       <FileNumber>6</FileNumber>
       <FileType>1</FileType>
-      <tvExp>0</tvExp>
+      <tvExp>1</tvExp>
       <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
@@ -382,12 +374,25 @@
       <GroupNumber>1</GroupNumber>
       <FileNumber>8</FileNumber>
       <FileType>1</FileType>
-      <tvExp>1</tvExp>
+      <tvExp>0</tvExp>
       <Focus>0</Focus>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>.\float_MKL46Z.c</PathWithFileName>
       <FilenameWithoutPath>float_MKL46Z.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+    <File>
+      <GroupNumber>1</GroupNumber>
+      <FileNumber>9</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <Focus>0</Focus>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>.\pit.c</PathWithFileName>
+      <FilenameWithoutPath>pit.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
