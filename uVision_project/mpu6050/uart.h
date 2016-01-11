@@ -10,6 +10,11 @@
  *         	      Core clock = 48MHz, BusClock = 24MHz. 
  */
 
+/**
+ * @defgroup UART UART communication setup and configuration
+ * @{
+ */
+
 #ifndef UART_H
 #define UART_H
 
@@ -60,4 +65,5 @@ void UART0_IRQHandler(void);
 
 #endif
 
+/**@}*/
 /**@}*/
