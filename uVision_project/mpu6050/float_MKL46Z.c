@@ -41,7 +41,7 @@ int intToStr(int x, char str[], int d)
 /* 
  * Converts a floating point number to string.
  */
-void ftoa(float n, char *res, int afterpoint){
+void ftoa(float n, char *buffer, int afterpoint){
   int ipart = 0;
   float fpart = .0f;
   int i = 0;
@@ -53,17 +53,17 @@ void ftoa(float n, char *res, int afterpoint){
   fpart = n - (float)ipart;
   
   /* Convert integer part to string */
-  i = intToStr(ipart, res, 0);
+  i = intToStr(ipart, buffer, 0);
   
   /* Check for the display options after point */
   if(afterpoint != 0) {
-    res[i] = '.';
+    buffer[i] = '.';
     
     // Get the value of fraction part upto given no.
     // of points after dot. The third parameter is needed
     // to handle cases like 233.007
     fpart = fpart * pow(10, afterpoint);
 
-    intToStr((int)fpart, res + i + 1, afterpoint);
+    intToStr((int)fpart, buffer + i + 1, afterpoint);
   }
 }
