@@ -6,6 +6,11 @@
  * 		Library used to establish the I2C communiation using the FRDM-MKL46Z board.
  */
 
+ /**
+ * @defgroup I2C I2C communication setup and configuration
+ * @{
+ */
+
 #ifndef I2C_MPU6050_H
 #define I2C_MPU6050_H
 
@@ -248,4 +253,5 @@ static inline void i2c_read_dummy_byte(){
 }
 #endif
 
+/**@}*/
 /**@}*/
