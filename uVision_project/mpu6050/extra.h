@@ -6,6 +6,11 @@
  * 		Library including functions useful in embedded progamming.
  */
 
+/**
+ * @defgroup EXTRA Extra funcionality used in various libraries
+ * @{
+ */
+
 #ifndef extra_h
 #define extra_h
 
@@ -19,4 +24,5 @@ void delay_mc(uint32_t value);
 
 #endif
 
+/**@}*/
 /**@}*/
