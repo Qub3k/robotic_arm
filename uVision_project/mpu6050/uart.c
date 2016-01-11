@@ -4,6 +4,8 @@
 Q_T RxQ;
 Q_T TxQ;
 
+char buf[MAX_BUFF_SIZE]; 
+
 void uart_init(void) {
   /* Supply the clock for UART0 and PORTA */
   SIM->SCGC4 |= SIM_SCGC4_UART0_MASK;
@@ -22,14 +24,13 @@ void uart_init(void) {
   /* Disable the reciever and transmitter of UART0 */
   UART0->C2 &= ~(UART0_C2_TE_MASK | UART0_C2_RE_MASK); // turn off the Tx and Rx
   
-  /* Set the oversampling ratio to 31 */
-  UART0->C4 &= ~UART0_C4_OSR_MASK; // clear the OSR
-  UART0->C4 |= UART0_C4_OSR(31);
+  /* Set the oversampling ratio to 4 */
+  UART0->C4 = UART0_C4_OSR(3);
   
-  /* Set SBr to 26 in order to achieve Baud Rate euqal to 9600 */
+  /* Set SBr to 139 in order to achieve Baud Rate euqal to 14400 */
   UART0->BDH |= UART0_BDH_SBR(0);
   UART0->BDL &= ~UART0_BDL_SBR_MASK; // clear BDL first
-  UART0->BDL |= UART0_BDL_SBR(26);
+  UART0->BDL |= UART0_BDL_SBR(139);
   
   /* Set 1 Stop Bit */
   UART0->BDH &= ~UART0_BDH_SBNS_MASK;
@@ -72,7 +73,7 @@ uint8_t uart_receive_poll(void){
 }
 
 void uart_transmit(const char *data, ...) {
-  char buf[MAX_BUFF_SIZE]; 
+//  char buf[MAX_BUFF_SIZE]; 
   unsigned int i = 0;
   int num_read = 0;
   
@@ -89,9 +90,9 @@ void uart_transmit(const char *data, ...) {
     }else{
       /* Don't increment the iterator, try to insert the data in the next run */
     }
-    /* Each time you insert something, make sure that the interrupt fot transmitter is active */
-    UART0->C2 |= UART0_C2_TIE_MASK;
   }
+  /* Each time you insert something, make sure that the interrupt fot transmitter is active */
+  UART0->C2 |= UART0_C2_TIE_MASK;
   
   va_end(args);
   
