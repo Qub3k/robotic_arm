@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /**
  * @addtogroup  DRIVERS Sensor Driver Layer
  * @brief       Hardware drivers to communicate with sensors via I2C.
@@ -11,6 +12,8 @@
  * @{
  */
 
+=======
+>>>>>>> c90e81a5e6f1e21f223effaa2104e25dd52cece4
 #ifndef I2C_MPU6050_H
 #define I2C_MPU6050_H
 
@@ -252,6 +255,9 @@ static inline void i2c_read_dummy_byte(){
 	i2c_wait();
 }
 #endif
+<<<<<<< HEAD
 
 /**@}*/
 /**@}*/
+=======
+>>>>>>> c90e81a5e6f1e21f223effaa2104e25dd52cece4
