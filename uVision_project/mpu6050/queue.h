@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /**
  * @addtogroup  DRIVERS Sensor Driver Layer
  * @brief       Hardware drivers to communicate with sensors via I2C.
@@ -8,12 +7,10 @@
  * 		Library implementing the queue structures.
  */
 
-=======
->>>>>>> c90e81a5e6f1e21f223effaa2104e25dd52cece4
 #ifndef QUEUE_H
 #define QUEUE_H
 
-#define Q_SIZE 64
+#define Q_SIZE 100
 
 typedef struct{
   unsigned char Data[Q_SIZE];
