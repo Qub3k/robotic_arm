@@ -3,6 +3,7 @@
  * @brief       Hardware drivers to communicate with sensors via I2C.
  * @{
  * 		@file queue.h
+ *		@ingroup UART
  * 		Library implementing the queue structures.
  */
 
