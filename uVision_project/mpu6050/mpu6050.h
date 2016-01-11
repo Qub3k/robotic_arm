@@ -1,16 +1,16 @@
 /**
- * @addtogroup  DRIVERS Sensor Driver Layer
- * @brief       Hardware drivers to communicate with sensors via I2C.
- * @{
- * 		@file 		mpu6050.h
- * 		@brief 		Hardware drivers to communicate with thr sensor via I2C.
- * 		@details	Library for configuration the MPU-6050, as well as parsing
- *					the information read from or written to the device.
+ * @file mpu6050.h
+ * @brief Hardware drivers to communicate with sensors via I2C.
+ * @details This header file was created in order to add the support for I2C communication
+ * with the MPU-6050 interial measurement unit used in the "Robotic Arm" project.
  */
 
 #ifndef _INV_MPU_H_
 #define _INV_MPU_H_
 
+/** 
+ * Testing whether doxygen will include this comment.
+ */
 #include "i2c_mpu6050.h"
 #include "extra.h"
 #include "uart.h"
@@ -76,11 +76,6 @@ struct int_param_s {
 #define MPU_INT_STATUS_DMP_5            (0x2000)
 
 /**
- * @defgroup setup Setup API for MPU-6050
- * @{
- */
-
-/**
  * Initialization function for the MPU-6050 sensor.
  *  Initial configuration:\n
  *  Gyro FSR: +/- 2000DPS\n
@@ -105,13 +100,6 @@ int mpu_init(struct int_param_s *int_param);
  *  @return     0 if successful.
  */
 int mpu_set_bypass(unsigned char bypass_on);
-
-/**@}*/
-
-/**
- * @defgroup config Configuration functions for MPU-6050
- * @{
- */
 
 /**
  *  Enter low-power accel-only mode.
@@ -348,12 +336,6 @@ int mpu_set_sensors(unsigned char sensors);
  */
 int mpu_set_accel_bias(const long *accel_bias);
 
-/**@}*/
-
-/**
- * @defgroup ios Input/Output functions for MPU-6050
- * @{
- */
 /**
  *  Read raw gyro data directly from the registers.
  *  @param[out] data        Raw data in hardware units.
@@ -497,8 +479,6 @@ int mpu_read_reg(unsigned char reg, unsigned char *data);
  */
 int mpu_run_self_test(long *gyro, long *accel);
 
-/**@}*/
+int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));
 
 #endif  /* #ifndef _INV_MPU_H_ */
-
-/**@}*/

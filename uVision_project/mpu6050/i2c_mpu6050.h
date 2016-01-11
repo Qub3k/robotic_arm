@@ -1,11 +1,3 @@
-/**
- * @addtogroup  DRIVERS Sensor Driver Layer
- * @brief       Hardware drivers to communicate with sensors via I2C.
- * @{
- * 		@file i2c_mpu6050.h
- * 		Library used to establish the I2C communiation using the FRDM-MKL46Z board.
- */
-
 #ifndef I2C_MPU6050_H
 #define I2C_MPU6050_H
 
@@ -247,5 +239,3 @@ static inline void i2c_read_dummy_byte(){
 	i2c_wait();
 }
 #endif
-
-/**@}*/
