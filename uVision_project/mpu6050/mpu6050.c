@@ -1074,27 +1074,27 @@ int mpu_init(struct int_param_s *int_param)
     if (mpu_set_gyro_fsr(2000)){ // FSR = Full Scale Range. Tutaj, funkcja ustawia zakres żyro. na +/- 2000 dps
         return -1;
     }else{
-      log_i("\tGyro FSR \t\t= +/- 2000 dps\r\n");
+      //log_i("\tGyro FSR \t\t= +/- 2000 dps\r\n");
     }
     if (mpu_set_accel_fsr(2)){ // Funkcja ustawia czułość akcelerometru na +/- 2g
         return -1;
     }else{
-      log_i("\tAccel FSR \t\t= +/- 2 g\r\n");
+      //log_i("\tAccel FSR \t\t= +/- 2 g\r\n");
     }
     if (mpu_set_lpf(42)){ // Funkcja ustawia cut-off filtra dolnoprzepustowego na 42 Hz
         return -1;
     }else{
-      log_i("\tLow-pass cut-off \t= 42 Hz\r\n");
+      //log_i("\tLow-pass cut-off \t= 42 Hz\r\n");
     }
     if (mpu_set_sample_rate(50)){ // Funkcja ustawiające Sampling Rate dla wszystkich czujników
         return -1;
     }else{
-      log_i("\tSample rate \t\t= 50 Hz\r\n");
+      //log_i("\tSample rate \t\t= 50 Hz\r\n");
     }
     if (mpu_configure_fifo(0)){ // Domyślnie, nie przekierowuj żadnych danych z czujników do FIFO
         return -1;
     }else{
-      log_i("\tFIFO \t\t\t= disabled\r\n");
+      //log_i("\tFIFO \t\t\t= disabled\r\n");
     }
 
     if (int_param) // jeśli adres do struktury konfigurującej przerwania dla danej platformty jest inny niż 0(NULL pointer) to...
@@ -1109,7 +1109,7 @@ int mpu_init(struct int_param_s *int_param)
     if (mpu_set_bypass(0)) {// wyłacz tryb "bypass"
         return -1;
     }else{
-      log_i("\tBypass mode \t\t= disabled\r\n");
+      //log_i("\tBypass mode \t\t= disabled\r\n");
     }
 // #endif
 
