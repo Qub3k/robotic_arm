@@ -82,11 +82,11 @@ void PIT_IRQHandler(void) {
       accel_data[1] = tmp_fl*1000;
       tmp_fl = (float)accel_data[2]/(float)accel_sens;
       accel_data[2] = tmp_fl*1000;
-      printf("\t%+hd\t%+hd\t%+hd", accel_data[0], accel_data[1] , accel_data[2]);
+      printf("\t%+hd\t%+hd\t%+hd\n", accel_data[0], accel_data[1] , accel_data[2]);
     }
     
     /* Send the timestamp */
-    printf("\t%+u\n", timestamp);
+    // printf("\t%+u\n", timestamp);
     
     // Clear channel 0 interrupt flag
     PIT->CHANNEL[0].TFLG |= PIT_TFLG_TIF_MASK;
