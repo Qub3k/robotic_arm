@@ -5,11 +5,19 @@
 #include "uart.h"
 #include "i2c_mpu6050.h"
 #include "mpu6050.h"
+#include "stdbool.h"
 
 #define PIT_IRQ_NBR (IRQn_Type) 22 // Define the number of interrupt vector for Periodic Interrupt Timer
 
+/**
+  * Initialization function for the Periodic Interrupt Timer.
+  */
 void pit_init(void);
 
-static uint8_t distance_cm = 0;
+/**
+  * Function for delaying program executino for the given amount of time.
+  * @param[in] ms_to_wait number of milliseonds to wait
+  */
+void wait_ms(uint32_t ms_to_wait);
 
 #endif

@@ -12,9 +12,10 @@
  * Testing whether doxygen will include this comment.
  */
 #include "i2c_mpu6050.h"
-#include "extra.h"
 #include "uart.h"
 #include "MKL46Z4.h"
+#include "pit.h"
+#include "extern.h"
 
 /**
  * Macro that provides a quick way to pick the x-axis of gyro.
@@ -478,6 +479,14 @@ int mpu_read_reg(unsigned char reg, unsigned char *data);
  *  @return     Result mask (see above).
  */
 int mpu_run_self_test(long *gyro, long *accel);
+
+/**
+  * Calibrate the gyro by returning the bias that shall be subracted from the
+  * readings taken from the unit.
+  * @param[out] gyro_bias 3-elements array with the bias for each axis of gyro
+  * @return 0 if sucessful.
+  */
+int mpu_calibate_gyro(int8_t *gyro_bias);
 
 int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));
 

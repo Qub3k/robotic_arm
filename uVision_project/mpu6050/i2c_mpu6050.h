@@ -73,6 +73,7 @@ void i2c_write_register(register uint8_t slaveId, register uint8_t registerAddre
  * @brief Writes an 8-bit values to an 8-bit registers on an I2C slave starting from registerAddress
  * @param[in] slaveId The device's I2C slave id
  * @param[in] registerAddress Address of the device register to write to
+ * @param[in] registerCount number of bytes to write
  * @param[in] buffer The buffer with values to write
  * @return 0 is successful, 1 if not
  */
