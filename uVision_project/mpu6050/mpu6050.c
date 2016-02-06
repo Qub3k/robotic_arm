@@ -1,12 +1,12 @@
-/*
- Design Laboratory - Robotic Arm project
-
- Dzierżewicz Tomasz
- Kwiatosz Michał
- Nawała Jakub
-
- academic year 2015/2016
- */
+/**
+  * Design Laboratory - Robotic Arm project
+  *
+  * Dzierżewicz Tomasz
+  * Kwiatosz Michał
+  * Nawała Jakub
+  *
+  * academic year 2015/2016
+  */
 /**
  *  @addtogroup  DRIVERS Sensor Driver Layer
  *  @brief       Hardware drivers to communicate with sensors via I2C.
@@ -29,78 +29,42 @@
   */
 uint32_t m = 0;
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-                            
- Poniższy komentarz podkreśla to o czym myślałem już wcześniej. Aby móc korzystać
- z czujnika platforma na której jest on używany (u nas FRDM-KL46Z) musi
- implementować kilka funkcji używanych w tej bibliotece:
- -> i2c_write(unsigned char slave_addr, unsigned char reg_addr,
-              unsigned char length, unsigned char const *data)
- -> i2c_read(unsigned char slave_addr, unsigned char reg_addr,
-             unsigned char length, unsigned char *data)
- -> delay_ms(unsigned long num_ms)
- -> get_ms(unsigned long *count)
- -> reg_int_cb(void (*cb)(void), unsigned char port, unsigned char pin) =>  register the interrupt callback
-                                                                            interrupt callback to po prostu ISR
-                                                                            czyli Interrup Service Routine
- -> labs(long x) => wartość bezwzględna liczby w formacie "long int"
- -> fabsf(float x) => wartość bezwzględna liczby w formacie "float"
- -> min(int a, int b)
- -> log_i => z tego co zrozumiałem to jest to funkcja służąca do logowanie przebiegu pracy czujnika
-             można ją zaimplementować jako nic nie robiącą funkcje: do{} while(0) 
- -> log_e => z tego co zrozumiałem to jest to funkcja służąca do logowanie przebiegu pracy czujnika
-             można ją zaimplementować jako nic nie robiącą funkcje: do{} while(0)
-
-  W tej konkretnej implementacji, twórcy posługują się makrami preprocesora,
-  aby włączyć kod odpowiedni dla urządzenia.
-
- ******************************************************************************/
-
-
+/**
+  * Definition of the functions that must be implemented as platform-specifc, which are used
+  * in the following library.
+  */
 void PORTA_IRQHandler(void) {
   /* Do something */
 }
-#define delay_ms wait_ms
-#define log_i uart_transmit
-#define log_e uart_transmit
+#define delay_ms wait_ms  // implemented in pit.c
+#define log_i uart_transmit // implemented in uart.c
+#define log_e uart_transmit // implemented in uart.c
 #define min(a,b) ((a<b)?a:b) 
-#define i2c_read i2c_read_registers
-#define i2c_write i2c_write_registers
+#define i2c_read i2c_read_registers // implemented in i2c_mpu6050.c
+#define i2c_write i2c_write_registers // implemented in i2c_mpu6050.c
 static inline int reg_int_cb(struct int_param_s *int_param) { // pomyśl jak zaimplementować tę funkcje
   /* Configure the interrupt routine for a proper interrupt set at MPU */
   int_param->ISR = PORTA_IRQHandler;
   return 0;
 }
-unsigned long int get_ms(unsigned long int *count) { 
+void get_ms(unsigned long int *count) { 
   /* Read the time */
   m = __get_PRIMASK();
   __disable_irq();
-  count[0] = milliseconds;
+  count[0] = milliseconds; // milliseconds is the shared variable updated by SysTick 
   __set_PRIMASK(m);
-  return 0;
 };
 
-/* Zdefiniujmy makro mówiące o tym jakiego używamy czujnika - będzie to potrzebne */ 
-/* w dalszych częściach kodu */
+/**
+  * Macro defining the ID of the device used.
+  */
 #define MPU6050
 
-/* Deklaracja funkcji służącej do włączania przerwania "data ready" */
+/**
+  * Declaration of the function used to handel "data-ready" interrupt.
+  */
 static int set_int_enable(unsigned char enable);
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-                            
- Struktura zdefniowana poniżej może być punktem wyjścia dla naszej biblioteki.
- Zawiera ona definicje każdego rejestru jako 8-bitowy typ "unsigned char". Stoi
- to w zgodności z data sheet'em czujnika, gdyż rzeczywiście rejstry urządzenia
- są 8-bitowe.
- Dodatkowo, można od razu zauważyć, że każdy typ zdefiniowany w kodzie jako
- struktura kończy się na "_s"
-
- ******************************************************************************/
 /* Hardware registers needed by driver. */
 struct gyro_reg_s {
     unsigned char who_am_i;
@@ -135,16 +99,9 @@ struct gyro_reg_s {
     unsigned char prgm_start_h;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniższa struktura to zbiór informacji przypisany do konkretnego urządznenia.
- W tym miejscu jest to tylko deklaracja, zaś definicja konkretnych wartości
- pól z tej struktury znajduje się poniżej.
-
- ******************************************************************************/
-/* Information specific to a particular device. */
+/**
+  * Information specific to a particular device. 
+  */
 struct hw_s {
     unsigned char addr;       // adres I2C urządzenia
     unsigned short max_fifo;  // max. rozmiar bufora FIFO
@@ -154,18 +111,10 @@ struct hw_s {
     unsigned short bank_size;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniższa struktura to zbiór danych używanych do przechowywania informacji
- na temat stanu poprzedzającego przejście do przerwania "Motion Interrupt"
-
- ******************************************************************************/
-/* When entering motion interrupt mode, the driver keeps track of the
- * previous state so that it can be restored at a later time.
- * TODO: This is tacky. Fix it.
- */
+/**
+  * When entering motion interrupt mode, the driver keeps track of the
+  * previous state so that it can be restored at a later time.
+  */
 struct motion_int_cache_s {
     unsigned short gyro_fsr; 
     unsigned char accel_fsr; 
@@ -176,17 +125,9 @@ struct motion_int_cache_s {
     unsigned char dmp_on;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniższa struktura służy przechowywaniu aktualnie ustawionej konfiguracji
- czujnika (tak mi się wydaje -> info czeka na potwierdzenie)
-
- ******************************************************************************/
-/* Cached chip configuration data.
- * TODO: A lot of these can be handled with a bitmask.
- */
+/**
+  * Cached chip configuration data.
+  */
 struct chip_cfg_s {
     /* Matches gyro_cfg >> 3 & 0x03 */
     unsigned char gyro_fsr;
@@ -227,14 +168,9 @@ struct chip_cfg_s {
     unsigned short dmp_sample_rate;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniższa struktura służy przechowywaniu danych używanych do kalibracji czunika
-
- ******************************************************************************/
-/* Information for self-test. */
+/**
+  * Information for self-test. 
+  */
 struct test_s {
     unsigned long gyro_sens;
     unsigned long accel_sens;
@@ -252,35 +188,9 @@ struct test_s {
     float max_accel_var;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniższa struktura łączy wcześniej opisane struktury tworząc spójny kontener
- w pełni opisujący stan naszego urządzenia.
-
- Co może przez chwilę zastanawiać to struktura wewnątrz sktruktury, ale coś 
- takiego jest dozwolone w C.
-
- Jako przykład na zrozumienie załóżmy, że tworzymy obiekt struktury "gyro_state_s"
- o nazwie "state":
-
-    struct gyro_state_s state;
-
- I teraz, żeby dostać się do pola o nazwie "foo" w obiekcie podstruktury "chip_cfg_s"
- znajdującej się wewnątrz struktury "gyro_state_s" używamy następującej składni:
-
-    state.chip_cfg.foo
-
- Zakładając, że obiekt struktury "chip_cfg_s" został zdefiniowany wewnątrz struktury
- "gyro_state_s" jako "chip_cfg"
-
- Wracając do poniższej struktury należy zauważyć, że w tym miejscu, pola obiektu
- "chip_cfg" struktury "chip_cfg_s" nie mają określonych wartości (są tylko
- zdefiniowane).
-
- ******************************************************************************/
-/* Gyro driver state variables. */
+/**
+  * Gyro driver state variables. 
+  */
 struct gyro_state_s {
     const struct gyro_reg_s *reg;
     const struct hw_s *hw;
@@ -288,25 +198,9 @@ struct gyro_state_s {
     const struct test_s *test;
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniżej znajduje się kilka typów wyliczeniowych wygodnych do konfiguracji
- określonych funkcji wewnątrz niżej zdefiniowanych metod.
-
- Należy pamiętac, że typy wilczeniowe działają jak zwykły TYP zmiennej w C.
- I tak, każda zmienna o typie "lpf_e" może mieć wartości: INV_FILTER_256HZ_NOLPF2,
- INV_FILTER_188HZ, INV_FILTER_98HZ itd.
-
- O czym jeszcze należy pamiętać to fakt, iż domyślnie, pierwszy elemnt z listy
- ma wartość 0. Potem, kolejne elemnty mają wartości przypisane ciągowi liczb
- całkowitych rosnącyh co 1.
-
- Dla przejrzystoći kodu częst wprost pisze się, że pierwszy element ma wartość 0.
-
- ******************************************************************************/
-/* Filter configurations. */
+/**
+  * Filter configurations. 
+  */
 enum lpf_e {
     INV_FILTER_256HZ_NOLPF2 = 0,
     INV_FILTER_188HZ, // = 1
@@ -319,7 +213,9 @@ enum lpf_e {
     NUM_FILTER // = 8
 };
 
-/* Full scale ranges. */
+/**
+  * Full scale ranges. 
+  */
 enum gyro_fsr_e {
     INV_FSR_250DPS = 0,
     INV_FSR_500DPS, // = 1
@@ -328,7 +224,9 @@ enum gyro_fsr_e {
     NUM_GYRO_FSR // = 4
 };
 
-/* Full scale ranges. */
+/**
+  * Full scale ranges. 
+  */
 enum accel_fsr_e {
     INV_FSR_2G = 0,
     INV_FSR_4G, // = 1
@@ -337,34 +235,28 @@ enum accel_fsr_e {
     NUM_ACCEL_FSR // = 4
 };
 
-/* Clock sources. */
+/**
+  * Clock sources. 
+  */
 enum clock_sel_e {
     INV_CLK_INTERNAL = 0,
     INV_CLK_PLL, // = 1
     NUM_CLK // = 2
 };
 
-/* Low-power accel wakeup rates. */
+/** 
+  * Low-power accel wakeup rates. 
+  */
 enum lp_accel_rate_e {
-// #if defined MPU6050
     INV_LPA_1_25HZ, // = 0
     INV_LPA_5HZ, // = 1
     INV_LPA_20HZ, // = 2
     INV_LPA_40HZ // = 3
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Poniżej znajdują się definicje bitów dla określonych rejestrów. I tak, np., 
- rejestr "PWR_MGMT_1" ma bit o nazwie "DEVICE_RESET" na miejscu 7, co tutaj
- zdefiniowane jest jako "BIT_RESET" = 0x80 = 128 = 0b1000 0000
-
- Można sie domyślić, iż reguła jest taka, że definicja bitu w danym rejestrze
- zawsze zaczyna się od słowa kluczowego "BIT_"
-
- ******************************************************************************/
+/**
+  * Bit placement definition - specific for the device.
+  */
 #define BIT_I2C_MST_VDDIO   (0x80)
 #define BIT_FIFO_EN         (0x40)
 #define BIT_DMP_EN          (0x80)
@@ -407,21 +299,9 @@ enum lp_accel_rate_e {
 #define BIT_STBY_XYZA       (BIT_STBY_XA | BIT_STBY_YA | BIT_STBY_ZA)
 #define BIT_STBY_XYZG       (BIT_STBY_XG | BIT_STBY_YG | BIT_STBY_ZG)
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Kod, który znajduje się poniżej to bardzo przydatna struktura, która przypisuje
- odpowiednim rejestrom MPU-6050 właściwe adresy zapisane w HEX'sie. Sprawdziłem
- to i wszystko zgadza się z data sheet'em czujnika. 
- Żeby zrozumieć co się tutaj dzieje najpierw trzeba zobaczyć deklaracje 
- struktury "gyro_reg_s", które może być znelziona ok. 300 linijek powyżej.
-
- Metoda przypisywania wartości do pól wewnątrz obiektu "reg" struktury "gyro_reg_s" 
- jest jak najbaridziej poprawna i używana, gdy chcemy podkreślić, które dokładnie
- pola inicjalizujemy.
-
- ******************************************************************************/
+/**
+  * Definition of the structure holding the address of the registers - specific for a device.
+  */
 const struct gyro_reg_s reg = {
     .who_am_i       = 0x75,
     .rate_div       = 0x19,
@@ -451,14 +331,9 @@ const struct gyro_reg_s reg = {
     .mem_start_addr = 0x6E,
     .prgm_start_h   = 0x70};
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja wartości strutkury opisującej konkretny czujnik. 
- Na pierwszy rzut oka wygląda na to, że wszystko się zgadza.
-
- ******************************************************************************/
+/**
+  * Definition of the structure storing hardware parameters specific for the device.
+  */
 const struct hw_s hw = {
     .addr           = 0x68,
     .max_fifo       = 1024,
@@ -468,20 +343,9 @@ const struct hw_s hw = {
     .bank_size      = 256
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja wartości strutkury używanej do kalibracji czujnika.
-
- Pierwsze dwie wartości to czułość żyroskopu oraz akceleroemtra wyrażażona jako
- LSB (Least Significatn Bit) po konwersji 16-bitowym ADC (od -32767 do 32768)
- zakładając, że zakres pracy żyroskopu to +/- 250 dps (degrees per second),
- a ackelerometru +/- 16g.
-
- Pozostałe stałe to wartości niezbędne do odpowiedniej kalibracji.
-
- ******************************************************************************/
+/**
+  * Definition of the structure used to perform the self-test.
+  */
 const struct test_s test = {
     .gyro_sens      = 32768/250,
     .accel_sens     = 32768/16,
@@ -499,46 +363,17 @@ const struct test_s test = {
     .max_accel_var  = 0.14f
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- W tym miejscu następuje inicjalizacja obiektu "st" struktury przechowującej stan 
- naszego czujnika ("gyro_state_s").
-
- &reg to adres obiektu struktury "gyro_reg_s" przechowujący adresy w pamięci
-      wszystkich rejestrów
-
- &hw to adres obiektu struktury "hw_s" zawierający dane sprzętowe naszego czujnika
-     takie jak: adres I2C, rozmiar bufora FIFO itd.
-
- &test to adres obiektu struktury "test_s", który to obiekt zawiera dane 
-       niezbędne do poprawnego wykonania funkcji "self-test"
-
- ******************************************************************************/
+/**
+  * Definition and initialization of the structure storing the current state of the device.
+  */
 static struct gyro_state_s st = {
     .reg = &reg, 
     .hw = &hw,
     .test = &test
 };
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja stałej, której mówi ile jednorazowo bajtów można odczytać z bufora
- FIFO.
-
- ******************************************************************************/
 #define MAX_PACKET_LENGTH (12) 
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do włączania przerwania "data ready"
-
- ******************************************************************************/
 /**
  *  @brief      Enable/disable data ready interrupt.
  *  If the DMP is on, the DMP interrupt is enabled. Otherwise, the data ready
@@ -608,13 +443,6 @@ int mpu_calibate_gyro(int8_t *gyro_bias){
   return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do wypisywania zawartości rejstrów urządzenia.
-
- ******************************************************************************/
 /**
  *  @brief      Register dump for testing.
  *  @return     0 if successful.
@@ -634,13 +462,6 @@ int mpu_reg_dump(void)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do oczytywania zawartości konkretnego rejestru.
-
- ******************************************************************************/
 /**
  *  @brief      Read from a single register.
  *  NOTE: The memory and FIFO read/write registers cannot be accessed.
@@ -657,22 +478,6 @@ int mpu_read_reg(unsigned char reg, unsigned char *data)
     return i2c_read(st.hw->addr, reg, 1, data); // W każdym innym wypadku, oczytaj rejestr "reg" i zapisz jego zawartość do zmiennej "data"
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do inicjalizacji urządzenia.
-
- Domyślna konfiguracja:
-    -> żyroskop: +/- 2000 dps
-    -> akcelerometr: +/- 2 g
-    -> Digital Low Pass Filter Cut-off: 42 Hz
-    -> Sample rate: 50 Hz
-    -> Clock source: zegar żyroskopu z PLL (Phased Locked Loop)
-    -> FIFO: wyłączone.
-    -> Data ready interrupt: wyłączony, active when LOW, unlatched.
-
- ******************************************************************************/
 /**
  *  @brief      Initialize hardware.
  *  Initial configuration:\n
@@ -796,34 +601,10 @@ int mpu_init(struct int_param_s *int_param){
     }
 
     mpu_set_sensors(0);
+    
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do wejścia w tryp "lop-power accelerometer-only mode".
-
- Podanie tej funkcji argumentu o wartości '0' wyłącza tryb "low-power".
-
- W trybie "low-power" chip śpi i budzi się tylko gdy przychodzi kolejna próbka 
- danych z akcelerometru (tylko i wyłącznie!).
-
- Dozwolona częstotliwość dla MPU-6050 to:
- -> 1.25 Hz,
- -> 5 Hz,
- -> 20 Hz
- -> oraz 40 Hz.
-
- Według data sheet'a, procedura wprowadzania urządzenia w stan "low power" jest
- następująca:
- 1. set CYCLE bit in PRW_MGMT_1 register to '1',
- 2. set SLEEP bit in PWR_MGMT_1 register to '0',
- 3. set TEMP_DIS bit in PWR_MGMT_1 register to '1', => wyłącza czujnik temperatury
- 4. set STBY_XG, STBY_YG, STBY_ZG bits to 1 in PWR_MGMT_2 register to '1'.
-
- ******************************************************************************/
 /**
  *  @brief      Enter low-power accel-only mode.
  *  In low-power accel mode, the chip goes to sleep and only wakes up to sample
@@ -890,17 +671,6 @@ int mpu_lp_accel_mode(unsigned char rate)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do sczytywania pomiarów z żrysokpu bezpośrednio
- z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
-
- Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
- definicja funkcji "get_ms()").
-
- ******************************************************************************/
 /**
  *  @brief      Read raw gyro data directly from the registers.
  *  @param[out] data        Raw data in hardware units.
@@ -924,17 +694,6 @@ int mpu_get_gyro_reg(short *data, unsigned long *timestamp)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do sczytywania pomiarów z akcelerometru bezpośrednio
- z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
-
- Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
- definicja funkcji "get_ms()").
-
- ******************************************************************************/
 /**
  *  @brief      Read raw accel data directly from the registers.
  *  @param[out] data        Raw data in hardware units.
@@ -958,20 +717,6 @@ int mpu_get_accel_reg(short *data, unsigned long *timestamp)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do sczytywania pomiarów z termometru bezpośrednio
- z czujnika - bez żadnej dodatkowej obróbki lub obliczeń.
-
- Co jest nakbardziej przyjemne to to, że funkcja sama przetwarza dane 
- i zwraca wynik w stopniach celcjusza.
-
- Dodatkowo, funkcja zwraca znacznik czasu pomariu (po to potrzebna jest
- definicja funkcji "get_ms()").
-
- ******************************************************************************/
 /**
  *  @brief      Read temperature data directly from the registers.
  *  @param[out] data        Data in q16 format.
@@ -996,21 +741,6 @@ int mpu_get_temperature(long *data, unsigned long *timestamp)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do ustawiania bias'u dla akcelerometra.
-
- Jest to funkcja, która służy do ustawienia odpowiedniej kalibracji akcelerometra.
-
- Funkcja sczytuje najpierw wartości kalibracyjne ustawione przez producenta podczas
- fabrykacji urządzenia.
-
- Tej funkcji używa się podczas kalibracji urządzenia po wykonaniu i zapisaniu 
- wyników "self-test".
-
- ******************************************************************************/
 /**
  *  @brief      Push biases to the accel bias registers.
  *  This function expects biases relative to the current sensor output, and
@@ -1063,13 +793,6 @@ int mpu_set_accel_bias(const long *accel_bias)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Definicja funkcji służącej do resetowania bufora FIFO.
-
- ******************************************************************************/
 /**
  *  @brief  Reset FIFO read/write pointers.
  *  @return 0 if successful.
@@ -1131,13 +854,6 @@ int mpu_reset_fifo(void)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracająca aktualne ustawienia zakresu pracy żyroskopu.
-
- ******************************************************************************/
 /**
  *  @brief      Get the gyro full-scale range.
  *  @param[out] fsr Current full-scale range.
@@ -1165,19 +881,6 @@ int mpu_get_gyro_fsr(unsigned short *fsr)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca zakres pracy żyroskopu. 
-
- Należy zwrócić uwagę jak sprytnie używa ona typu wyliczeniowego "gyro_fsr_e"
- przesuniętego o 3 bity w lewo. Przesunięcie wynika z tego, że to od 3 bitu
- w rejestrze GRYO_CFG ustawia się zakres pracy żyroskopu.
-
- Ustawiany zakres jest wartością 2 bitową (0 - 3)
-
- ******************************************************************************/
 /**
  *  @brief      Set the gyro full-scale range.
  *  @param[in]  fsr Desired full-scale range.
@@ -1215,16 +918,6 @@ int mpu_set_gyro_fsr(unsigned short fsr)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracające aktualne ustawienia zakresu pracy akceleromteru.
-
- To czy aktywny jest tryb "half accelerometer precision" zależy od numeru
- seryjnego urządzenia sprawdzanego w funkcji inicjalizującej.
-
- ******************************************************************************/
 /**
  *  @brief      Get the accel full-scale range.
  *  @param[out] fsr Current full-scale range.
@@ -1253,19 +946,6 @@ int mpu_get_accel_fsr(unsigned char *fsr)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca zakres pracy akcelerometru.
-
- Należy zwrócić uwagę jak sprytnie używa ona typu wyliczeniowego "accel_fsr_e"
- przesuniętego o 3 bity w lewo. Przesunięcie wynika z tego, że to od 3 bitu
- w rejestrze ACCEL_CFG ustawia się zakres pracy akcelerometru.
-
- Ustawiany zakres jest wartością 2 bitową (0 - 3)
-
- ******************************************************************************/
 /**
  *  @brief      Set the accel full-scale range.
  *  @param[in]  fsr Desired full-scale range.
@@ -1303,13 +983,6 @@ int mpu_set_accel_fsr(unsigned char fsr)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracające aktualne ustawienie Digital Low Pass Filter
-
- ******************************************************************************/
 /**
  *  @brief      Get the current DLPF setting.
  *  @param[out] lpf Current LPF setting.
@@ -1345,31 +1018,6 @@ int mpu_get_lpf(unsigned short *lpf)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca cut-off filtra dolnoprzepustowego.
-
- Dostępne wartości [Hz]: 188, 98, 42, 20, 10, 5
-
- Ponownie należy zwrócić uwagę jak sprytnie używane są tutaj typy wyliczeniowe
- zdefiniowane wcześniej.
-
- Ustawienia filtra znajdują się w rejestrze CONFIG i są to pierwsze 3 bity [0:2]
-
- Trzeba paiętać, że im niższy cut-off tym większe opóźnienie wprowowadzone przez
- użycie filtra.
-
- Dokładnie jest to rozpisane w dokumentacji "MPU-6000 and MPU-6050 Register Map 
- and Descriptions Revision 4.0" w opisie rejestru "CONFIG"
-
- Należy pamiętać, że jeśli włączymy Low Pass Filter to output rate żyroskopu
- domyślnie jest ograniczony do 1 kHz!
-
- Dodatkowo, można ustawić filtr 
-
- ******************************************************************************/
 /**
  *  @brief      Set digital low pass filter.
  *  The following LPF settings are supported: 188, 98, 42, 20, 10, 5.
@@ -1404,13 +1052,6 @@ int mpu_set_lpf(unsigned short lpf)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwraca aktualne utawienia "sampling rate".
-
- ******************************************************************************/
 /**
  *  @brief      Get sampling rate.
  *  @param[out] rate    Current sampling rate (Hz).
@@ -1425,23 +1066,6 @@ int mpu_get_sample_rate(unsigned short *rate)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca sampling rate dla danych pobieranych z czujników.
-
- Zgodnie z data sheet'em, jeśli używamy zarówno żyroskopu, jak i akcelerometru
- to sampling rate musi mieścić się między 4 Hz a 1 kHz.
-
- Należy pamiętać, że zgodnie z data sheet'em, sampling rate ustawia się jako:
-
-    Sample Rate = Gyroscope Output Rate / (1 + SMPLRT_DIV)
-
- Więc jedynym modyfikowalnym przez nas paramterem jest tutaj "SMPLRT_DIV" i to
- ten parametr musimy wpisać do rejestru.
-
- ******************************************************************************/
 /**
  *  @brief      Set sampling rate.
  *  Sampling rate must be between 4Hz and 1kHz.
@@ -1486,15 +1110,6 @@ int mpu_set_sample_rate(unsigned short rate)
     }
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracająca Sampling Rate ustawiony dla kompasu.
-
- W projekcie robotic arm raczej nam się to nie przyda.
-
- ******************************************************************************/
 /**
  *  @brief      Get compass sampling rate.
  *  @param[out] rate    Current compass sampling rate (Hz).
@@ -1506,15 +1121,6 @@ int mpu_get_compass_sample_rate(unsigned short *rate)
     return -1; // oraz zwróc kod błedu.
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca Sampling Rate dla kompasu.
-
- W projekcie robotic arm raczej nam się to nie przyda.
-
- ******************************************************************************/
 /**
  *  @brief      Set compass sampling rate.
  *  The compass on the auxiliary I2C bus is read by the MPU hardware at a
@@ -1530,19 +1136,6 @@ int mpu_set_compass_sample_rate(unsigned short rate)
 {
     return -1; // zwróc -1 ponieważ nie używamy w projekcie kompasu
 }
-
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracająca ustawienia czułości żyroskopu.
-
- Funkcja ta tłumaczy Full Scale Range na LSB/dps czyli ile kroków konwertera
- analogowo-cyfrowego odpowiada jednepu stopniowi na sekundę.
-
- Te wartości można odczytać bezpośrednio z data sheet'a.
-
- ******************************************************************************/
 
 /**
  *  @brief      Get gyro sensitivity scale factor.
@@ -1570,18 +1163,6 @@ int mpu_get_gyro_sens(float *sens)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracająca ustawienia czułości akcelerometra.
-
- Funkcja ta tłumaczy Full Scale Range na LSB/g czyli ile kroków konwertera
- analogowo-cyfrowego odpowiada jednemu g.
-
- Te wartości można odczytać bezpośrednio z data sheet'a.
-
- ******************************************************************************/
 /**
  *  @brief      Get accel sensitivity scale factor.
  *  @param[out] sens    Conversion from hardware units to g's.
@@ -1610,15 +1191,6 @@ int mpu_get_accel_sens(unsigned short *sens)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracająca ustawienia konfiguracyjne bufora FIFO.
-
- Jest to po prostu zwrócenie wartości ze struktury konfiguracyjnej.
-
- ******************************************************************************/
 /**
  *  @brief      Get current FIFO configuration.
  *  @e sensors can contain a combination of the following flags:
@@ -1634,17 +1206,6 @@ int mpu_get_fifo_config(unsigned char *sensors)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca, które czujniki mają przekazywać swoje odczyty do bufora
- First-In-Firsto-Out.
-
- Jeśli przekażemy funkcji parametr o wartości 0 to dane z żadnego z czujników
- nie zostaną przekierowane do FIFO.
-
- ******************************************************************************/
 /**
  *  @brief      Select which sensors are pushed to FIFO.
  *  @e sensors can contain a combination of the following flags:
@@ -1691,17 +1252,6 @@ int mpu_configure_fifo(unsigned char sensors)
     return result;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracjąca obecny stan zużycia mocy udząrzednia.
-
- Zwraca:
-  -> 0 => sensory wyłączone, urządzenie wstrzymane,
-  -> 1 => sensory włączone, urządzenie pracuje.
-
- ******************************************************************************/
 /**
  *  @brief      Get current power state.
  *  @param[in]  power_on    1 if turned on, 0 if suspended.
@@ -1716,29 +1266,6 @@ int mpu_get_power_state(unsigned char *power_on)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja dzięki której możemy włączyć konkretne sensory.
-
- Pamiętaj, aby posługiwać się, zdefiniowanym w nagłówku "mpu6050.h", makrami
- odpowiadającymi konrketnym podezposłom:
- -> INV_X_GYRO      żyroskop tylko w osi x
- -> INV_Y_GYRO      żyroskop tylko w osi y
- -> INV_Z_GYRO      żyroskop tylko w osi z
- -> NV_XYZ_GYRO     żyroskop we wszystkich 3 osiach
- -> INV_XYZ_ACCEL   akcelerometr we wszystkich 3 osiach
-
- Co jest ważne w tej funkcji to fakt, iż jesli nie ustawimy któregokolwiek
- z czujników w "stanby mode" w rejestrze PWR_MGMT_2 to, domyślnie, jest on
- włączony.
-
- Dodatkowo, jeśli wcześniej wybraliśmy żyroskop jako źródło zegara to jeśli go
- wyłączymy w rejestrze PWR_MGMT_2, czujnik automatucznie przełączy się na
- wewnętrzny zegar 8MHz.
-
- ******************************************************************************/
 /**
  *  @brief      Turn specific sensors on/off.
  *  @e sensors can contain a combination of the following flags:
@@ -1789,17 +1316,6 @@ int mpu_set_sensors(unsigned char sensors)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracjąca obecny stan rejestru przerwań.
-
- Ważne jest to, aby zauważyć, że funkcja zwraca dwa pełne rejestry:
- -> statusy przerwań dla DMP (Digital Motino Processor),
- -> statusy przerwań dla reszty czujnika (bez DMP).
-
- ******************************************************************************/
 /**
  *  @brief      Read the MPU interrupt status registers.
  *  @param[out] status  Mask of interrupt bits.
@@ -1816,22 +1332,6 @@ int mpu_get_int_status(short *status)
     return 0;
 }
 
-
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracjąca jeden pakiet z bufora FIFO.
-
- Należy pamiętać o tym, że wszystko dziala tutaj w trybie First-in-First-Out 
- queue czyli jeśli chcemy odczytać zawartość 12 rejestrów to musimy 12 razy
- odczytać dane z FIFO i po każdym odczycie, najstarsze dane są odrzucane i podczas
- kolejnego odczytu, mamy dostęp do danych z kolejnego rejestru.
-
- Z data sheet'a wynika, że dane z czujników są wpisywane do FIFO w kolejności
- odpowiadającej adresowi ich rejestrów (od najmniejszego do największego).
-
- ******************************************************************************/
 /**
  *  @brief      Get one packet from the FIFO.
  *  If @e sensors does not contain a particular sensor, disregard the data
@@ -1924,18 +1424,6 @@ int mpu_read_fifo(short *gyro, short *accel, unsigned long *timestamp,
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja zwracjąca jeden niestandardowy pakiet z bufora FIFO.
-
- Niestandardowy oznacza tutaj, że jego długość i wielkośc nie odpowiadają
- zdefiniowanym makrom lub włączonym sensorom.
-
- Co ciekawe, funkcja działa tylko wtedy gdy włączony jest Digial Motion Processor.
-
- ******************************************************************************/
 /**
  *  @brief      Get one unparsed packet from the FIFO.
  *  This function should be used if the packet is to be parsed elsewhere.
@@ -1976,29 +1464,6 @@ int mpu_read_fifo_stream(unsigned short length, unsigned char *data,
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca urządzenie w tryb "bypass".
-
- Tryb "bypass" pozwala nam bezpośrednio konfigurować zewnętrzny czujnik podłączony
- do MPU-6050.
-
- Ze względu na to, że nie używamy żadnego zewnętrznego czujnika to ta funkcja
- nigdy nie będzie przez nas używana.
-
- Pole "bypass_mode" opisane jest przez producenta w następujący sposób:
-
-    "1 if devices on auxiliary I2C bus appear on the primary."
-
- Dość ciekawe jest to, że funkcja musi też modyfikować rejestr INT_PIN_CFG,
- ale dzieje się tak ze względu na to, że to tam właśnie znajduje się bit,
- który jest najważniejszy w konfiguracji trybu "bypass". Jeśli bit ten (I2C_BYPASS_EN)
- jest ustawiony na '0' to żaden inny rejestr nie będzie w stanie włączyć
- trybu "bypass".
-
- ******************************************************************************/
 /**
  *  @brief      Set device to bypass mode.
  *  @param[in]  bypass_on   1 to enable bypass mode.
@@ -2049,23 +1514,6 @@ int mpu_set_bypass(unsigned char bypass_on)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja ustawiająca jaki locziny poziom odpowiada przerwaniu.
-
- Dostępne opcje:
- -> Active-when-Low,
- -> Active-when-High.
-
- Nie do końca rozumiem czemu ma służyć ta funkcja skoro, w gruncie rzeczy,
- nie zapisuje nic do rejestrów czujnika.
-
- Najprawdopodniej, wartość przypisane w tej funkcji używana jest potem 
- przy inicjalizacji urządzenia.
-
- ******************************************************************************/
 /**
  *  @brief      Set interrupt level.
  *  @param[in]  active_low  1 for active low, 0 for active high.
@@ -2077,26 +1525,6 @@ int mpu_set_int_level(unsigned char active_low)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
-
- Funkcja włączająca tryb "latched interrupts" dla pinu INT.
-
- Gdy ten tryb jest włączony to pin "INT" utrzymuje status przerwania tak długo
- jak długo ustawiona jest flaga któregokowliek przerwania w odpowiednim rejestrze.
-
- Dopiero po wyczeszczeniu tej flagi, pin "INT" wraca to stanu jałowego.
-
- Może dziwić, że pojawiają sie tu linijki dotyczące bypass mode czy ustawienia
- związane active-when-low. Dzieje się tak dlatego, że funkcja musi to zweryfikować
- aby zachować te ustawienia takie jak były przed jej wywołaniem.
-
- Paramtr: enable
-   -> 1 => włącz latched interrupts,
-   -> 0 => wyłącz latched interrupts.
-
- ******************************************************************************/
 /**
  *  @brief      Enable latched interrupts.
  *  Any MPU register will clear the interrupt.
@@ -2123,16 +1551,11 @@ int mpu_set_int_latched(unsigned char enable)
     return 0;
 }
 
-/* Tutaj rozpoczyna się blok funkcji zdefiniowany jedynia dla MPU-6050 */
 #ifdef MPU6050
-/******************************************************************************
 
-                            ROBOTIC ARM DESIGN LAB 
- 
- Funckja służąca do odczytania wartości "Factory Trim" zapisanych na płyce
- prez producenta.
-
- ******************************************************************************/
+/**
+  * Function for reading the "factory-trim" values for the accelerometer.
+  */
 static int get_accel_prod_shift(float *st_shift)
 {
     unsigned char tmp[4], shift_code[3], ii;
@@ -2158,18 +1581,14 @@ static int get_accel_prod_shift(float *st_shift)
     return 0;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
- 
- Funckja służąca do analizy danych z funkcji "self-test" dla ackelerometra.
-
- bias_regular = accelerometer output with Self-test Enabled
- biar_st      = accelerometer output with Self-test Disabled
-
- Self Test Response = biar_regular - bias_st
-
- ******************************************************************************/
+/**
+  * Function used for calucalting the resutls for the "self-test" function for accelerometer.
+  *
+  *  bias_regular = accelerometer output with Self-test Enabled
+  *  biar_st      = accelerometer output with Self-test Disabled
+  *
+  * Self Test Response = biar_regular - bias_st
+  */
 static int accel_self_test(long *bias_regular, long *bias_st)
 {
     int jj, result = 0; // utwórz dwie 32-bitowe zmienne
@@ -2190,22 +1609,14 @@ static int accel_self_test(long *bias_regular, long *bias_st)
     return result;
 }
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
- 
- Funckja służąca do analizy danych z funkcji "self-test" dla żyroskopu.
-
- bias_regular = gyro output with Self-test Enabled
- bias_st      = gyro output with Self-test Disabled
- 
- Self Test Response = biar_regular - bias_st
-
- tmp[0] = XG_TEST
- tmp[1] = YG_TEST
- tmp[2] = ZG_TEST
-
- ******************************************************************************/
+/**
+  * Function used for calucalting the resutls for the "self-test" function for accelerometer.
+  *
+  *  bias_regular = gyro output with Self-test Enabled
+  *  biar_st      = gyro output with Self-test Disabled
+  *
+  * Self Test Response = biar_regular - bias_st
+  */
 static int gyro_self_test(long *bias_regular, long *bias_st)
 {
     int jj, result = 0;
@@ -2235,17 +1646,11 @@ static int gyro_self_test(long *bias_regular, long *bias_st)
     return result;
 }
 
-#endif 
-/* koniec makra MPU6050 */
+#endif /* end of MPU6050 */
 
-/******************************************************************************
-
-                            ROBOTIC ARM DESIGN LAB 
- 
- Funckja służąca do wyliczania wyników wyjściowych sensorów gdy funkcja
- Self-test jest włączona/wyłączona.
-
- ******************************************************************************/
+/**
+  * Intermediate function for calculating the "self-test" function results.
+  */
 static int get_st_biases(long *gyro, long *accel, unsigned char hw_test)
 {
     unsigned char data[MAX_PACKET_LENGTH];

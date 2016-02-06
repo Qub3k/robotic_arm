@@ -483,8 +483,8 @@ int mpu_run_self_test(long *gyro, long *accel);
 /**
   * Calibrate the gyro by returning the bias that shall be subracted from the
   * readings taken from the unit.
-  * @param[out] gyro_bias 3-elements array with the bias for each axis of gyro
-  * @return 0 if sucessful.
+  * @param[out] gyro_bias 3-elements array with the bias for each axis of gyro.
+  * @return 0 if successful.
   */
 int mpu_calibate_gyro(int8_t *gyro_bias);
 

@@ -2,7 +2,7 @@
 #include "pit.h"
 #include "extern.h"
 
-/* Variable from shared with other files by the "extern.h" */
+/* Variable shared with other files by the "extern.h" */
 uint32_t milliseconds = 0;
 
 /**

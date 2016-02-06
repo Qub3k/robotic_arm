@@ -89,9 +89,9 @@ void pit_init() {
   if(mpu_calibate_gyro(gyro_bias))
     printf("Calibration failed\n");
   printf("Calibration results:\n");
-  printf("\tGyro_x:%d\n", gyro_bias[0]);
-  printf("\tGyro_y:%d\n", gyro_bias[1]);
-  printf("\tGyro_z:%d\n", gyro_bias[2]);
+  printf("\tGyro_x: %d\n", gyro_bias[0]);
+  printf("\tGyro_y: %d\n", gyro_bias[1]);
+  printf("\tGyro_z: %d\n", gyro_bias[2]);
   
   // Enable channel 0 timer in PIT - reading the results from the MPU-6050
   PIT->CHANNEL[0].TCTRL |= PIT_TCTRL_TEN_MASK;
