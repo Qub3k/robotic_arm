@@ -106,11 +106,11 @@ void PIT_IRQHandler(void) {
 			// do nothing if reading failed
     }else{
       tmp_fl = (float)(gyro_data[0] - gyro_bias[0])/(float)gyro_sens;
-      gyro_data[0] = tmp_fl;
+      gyro_data[0] = rint(tmp_fl);
       tmp_fl = (float)(gyro_data[1] - gyro_bias[1])/(float)gyro_sens;
-      gyro_data[1] = tmp_fl;
+      gyro_data[1] = rint(tmp_fl);
       tmp_fl = (float)(gyro_data[2] - gyro_bias[2])/(float)gyro_sens;
-      gyro_data[2] = tmp_fl;
+      gyro_data[2] = rint(tmp_fl);
       printf("%+hd\t%+hd\t%+hd", gyro_data[0] , gyro_data[1] , gyro_data[2]);
     }
     
@@ -119,11 +119,11 @@ void PIT_IRQHandler(void) {
       // do nothing if reading failed
     }else{
       tmp_fl = (float)accel_data[0]/(float)accel_sens;
-      accel_data[0] = tmp_fl*1000;
+      accel_data[0] = rint(tmp_fl*1000);
       tmp_fl = (float)accel_data[1]/(float)accel_sens;
-      accel_data[1] = tmp_fl*1000;
+      accel_data[1] = rint(tmp_fl*1000);
       tmp_fl = (float)accel_data[2]/(float)accel_sens;
-      accel_data[2] = tmp_fl*1000;
+      accel_data[2] = rint(tmp_fl*1000);
       printf("\t%+hd\t%+hd\t%+hd\n", accel_data[0], accel_data[1] , accel_data[2]);
     }
     

@@ -6,6 +6,7 @@
 #include "i2c_mpu6050.h"
 #include "mpu6050.h"
 #include "stdbool.h"
+#include "math.h" // rint()
 
 #define PIT_IRQ_NBR (IRQn_Type) 22 // Define the number of interrupt vector for Periodic Interrupt Timer
 

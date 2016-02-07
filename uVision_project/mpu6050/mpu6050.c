@@ -436,9 +436,9 @@ int mpu_calibate_gyro(int8_t *gyro_bias){
   }
   
   /* Calculate the average value for each axis */
-  gyro_bias[0] = gyro_readings_sum[0]/20;
-  gyro_bias[1] = gyro_readings_sum[1]/20;
-  gyro_bias[2] = gyro_readings_sum[2]/20;
+  gyro_bias[0] = rint((double)gyro_readings_sum[0]/(double)20);
+  gyro_bias[1] = rint((double)gyro_readings_sum[1]/(double)20);
+  gyro_bias[2] = rint((double)gyro_readings_sum[2]/(double)20);
 
   return 0;
 }
